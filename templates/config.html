@@ -4,7 +4,7 @@
 <div class="bg-white shadow rounded-lg p-6">
     <h2 class="text-2xl font-bold mb-6">Configuración</h2>
     
-    <form action="{{ url_for('config') }}" method="POST" class="space-y-6">
+    <form id="configForm" class="space-y-6">
         <!-- Horario de Trabajo -->
         <div class="space-y-4">
             <h3 class="text-lg font-semibold">Horario de Trabajo</h3>
@@ -12,13 +12,11 @@
                 <div>
                     <label for="work_start_time" class="block text-sm font-medium text-gray-700">Hora de Inicio</label>
                     <input type="time" id="work_start_time" name="work_start_time" 
-                           value="{{ current_user.work_start_time.strftime('%H:%M') }}"
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
                 <div>
                     <label for="work_end_time" class="block text-sm font-medium text-gray-700">Hora de Fin</label>
                     <input type="time" id="work_end_time" name="work_end_time"
-                           value="{{ current_user.work_end_time.strftime('%H:%M') }}"
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
             </div>
@@ -31,19 +29,16 @@
                 <div>
                     <label for="default_service" class="block text-sm font-medium text-gray-700">Servicio Principal</label>
                     <input type="text" id="default_service" name="default_service"
-                           value="{{ current_user.default_service }}"
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
                 <div>
                     <label for="ooo_service" class="block text-sm font-medium text-gray-700">Servicio Fuera de Oficina</label>
                     <input type="text" id="ooo_service" name="ooo_service"
-                           value="{{ current_user.ooo_service }}"
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
                 <div>
                     <label for="focus_time_service" class="block text-sm font-medium text-gray-700">Servicio Focus Time</label>
                     <input type="text" id="focus_time_service" name="focus_time_service"
-                           value="{{ current_user.focus_time_service }}"
                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
             </div>
@@ -53,39 +48,14 @@
         <div class="space-y-4">
             <div class="flex items-center">
                 <input type="checkbox" id="use_color_tags" name="use_color_tags"
-                       {% if current_user.use_color_tags %}checked{% endif %}
                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                 <label for="use_color_tags" class="ml-2 block text-sm text-gray-900">
                     Usar Etiquetas de Color
                 </label>
             </div>
 
-            <div id="color_tags_container" class="space-y-4 {% if not current_user.use_color_tags %}hidden{% endif %}">
+            <div id="color_tags_container" class="space-y-4 hidden">
                 <div class="space-y-4" id="color_tags_list">
-                    {% for color_id, service_name in current_user.color_tags.items() %}
-                    <div class="flex items-center space-x-4">
-                        <select name="color_id[]" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                            <option value="1" {% if color_id == '1' %}selected{% endif %}>Lavanda</option>
-                            <option value="2" {% if color_id == '2' %}selected{% endif %}>Salvia</option>
-                            <option value="3" {% if color_id == '3' %}selected{% endif %}>Uva</option>
-                            <option value="4" {% if color_id == '4' %}selected{% endif %}>Flamingo</option>
-                            <option value="5" {% if color_id == '5' %}selected{% endif %}>Banana</option>
-                            <option value="6" {% if color_id == '6' %}selected{% endif %}>Mandarina</option>
-                            <option value="7" {% if color_id == '7' %}selected{% endif %}>Pavo Real</option>
-                            <option value="8" {% if color_id == '8' %}selected{% endif %}>Grafito</option>
-                            <option value="9" {% if color_id == '9' %}selected{% endif %}>Arándano</option>
-                            <option value="10" {% if color_id == '10' %}selected{% endif %}>Albahaca</option>
-                            <option value="11" {% if color_id == '11' %}selected{% endif %}>Tomate</option>
-                        </select>
-                        <input type="text" name="service_name[]" value="{{ service_name }}"
-                               class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <button type="button" class="text-red-600 hover:text-red-800" onclick="removeColorTag(this)">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                    {% endfor %}
                 </div>
                 <button type="button" onclick="addColorTag()"
                         class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
@@ -95,7 +65,7 @@
         </div>
 
         <div class="pt-5">
-            <button type="submit"
+            <button type="button" onclick="saveConfig()"
                     class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 Guardar Configuración
             </button>
@@ -105,30 +75,63 @@
 
 {% block extra_js %}
 <script>
+// Cargar configuración al iniciar
+document.addEventListener('DOMContentLoaded', function() {
+    const config = JSON.parse(localStorage.getItem('calendarConfig') || '{}');
+    
+    // Cargar valores por defecto si no hay configuración
+    if (!config.work_start_time) config.work_start_time = '09:00';
+    if (!config.work_end_time) config.work_end_time = '18:00';
+    if (!config.default_service) config.default_service = 'SERVICIO PRINCIPAL';
+    if (!config.ooo_service) config.ooo_service = 'FUERA DE OFICINA';
+    if (!config.focus_time_service) config.focus_time_service = 'TIEMPO DE CONCENTRACIÓN';
+    if (!config.use_color_tags) config.use_color_tags = false;
+    if (!config.color_tags) config.color_tags = {};
+
+    // Establecer valores en los campos
+    document.getElementById('work_start_time').value = config.work_start_time;
+    document.getElementById('work_end_time').value = config.work_end_time;
+    document.getElementById('default_service').value = config.default_service;
+    document.getElementById('ooo_service').value = config.ooo_service;
+    document.getElementById('focus_time_service').value = config.focus_time_service;
+    document.getElementById('use_color_tags').checked = config.use_color_tags;
+    
+    // Mostrar/ocultar contenedor de etiquetas
+    toggleColorTags();
+    
+    // Cargar etiquetas de color
+    const colorTagsList = document.getElementById('color_tags_list');
+    colorTagsList.innerHTML = '';
+    for (const [colorId, serviceName] of Object.entries(config.color_tags)) {
+        addColorTag(colorId, serviceName);
+    }
+});
+
 function toggleColorTags() {
     const container = document.getElementById('color_tags_container');
-    container.classList.toggle('hidden');
+    const checkbox = document.getElementById('use_color_tags');
+    container.classList.toggle('hidden', !checkbox.checked);
 }
 
-function addColorTag() {
+function addColorTag(colorId = '', serviceName = '') {
     const container = document.getElementById('color_tags_list');
     const newTag = document.createElement('div');
     newTag.className = 'flex items-center space-x-4';
     newTag.innerHTML = `
         <select name="color_id[]" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-            <option value="1">Lavanda</option>
-            <option value="2">Salvia</option>
-            <option value="3">Uva</option>
-            <option value="4">Flamingo</option>
-            <option value="5">Banana</option>
-            <option value="6">Mandarina</option>
-            <option value="7">Pavo Real</option>
-            <option value="8">Grafito</option>
-            <option value="9">Arándano</option>
-            <option value="10">Albahaca</option>
-            <option value="11">Tomate</option>
+            <option value="1" ${colorId === '1' ? 'selected' : ''}>Lavanda</option>
+            <option value="2" ${colorId === '2' ? 'selected' : ''}>Salvia</option>
+            <option value="3" ${colorId === '3' ? 'selected' : ''}>Uva</option>
+            <option value="4" ${colorId === '4' ? 'selected' : ''}>Flamingo</option>
+            <option value="5" ${colorId === '5' ? 'selected' : ''}>Banana</option>
+            <option value="6" ${colorId === '6' ? 'selected' : ''}>Mandarina</option>
+            <option value="7" ${colorId === '7' ? 'selected' : ''}>Pavo Real</option>
+            <option value="8" ${colorId === '8' ? 'selected' : ''}>Grafito</option>
+            <option value="9" ${colorId === '9' ? 'selected' : ''}>Arándano</option>
+            <option value="10" ${colorId === '10' ? 'selected' : ''}>Albahaca</option>
+            <option value="11" ${colorId === '11' ? 'selected' : ''}>Tomate</option>
         </select>
-        <input type="text" name="service_name[]" placeholder="Nombre del Servicio"
+        <input type="text" name="service_name[]" value="${serviceName}" placeholder="Nombre del Servicio"
                class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
         <button type="button" class="text-red-600 hover:text-red-800" onclick="removeColorTag(this)">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,6 +144,34 @@ function addColorTag() {
 
 function removeColorTag(button) {
     button.parentElement.remove();
+}
+
+function saveConfig() {
+    const config = {
+        work_start_time: document.getElementById('work_start_time').value,
+        work_end_time: document.getElementById('work_end_time').value,
+        default_service: document.getElementById('default_service').value,
+        ooo_service: document.getElementById('ooo_service').value,
+        focus_time_service: document.getElementById('focus_time_service').value,
+        use_color_tags: document.getElementById('use_color_tags').checked,
+        color_tags: {}
+    };
+
+    // Recolectar etiquetas de color
+    const colorTags = document.querySelectorAll('#color_tags_list > div');
+    colorTags.forEach(tag => {
+        const colorId = tag.querySelector('select').value;
+        const serviceName = tag.querySelector('input').value;
+        if (colorId && serviceName) {
+            config.color_tags[colorId] = serviceName;
+        }
+    });
+
+    // Guardar en localStorage
+    localStorage.setItem('calendarConfig', JSON.stringify(config));
+    
+    // Mostrar mensaje de éxito
+    alert('Configuración guardada correctamente');
 }
 
 document.getElementById('use_color_tags').addEventListener('change', toggleColorTags);
