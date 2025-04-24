@@ -67,28 +67,99 @@
     {% endif %}
 </div>
 
+<!-- Toasts para mensajes -->
+<div id="errorToast" class="fixed bottom-4 right-4 hidden">
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-sm" role="alert">
+        <span class="block sm:inline pr-8" id="errorMessage"></span>
+        <button class="absolute top-1/2 right-3 transform -translate-y-1/2" onclick="hideToast('errorToast')" type="button">
+            <svg class="fill-current h-5 w-5 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <title>Cerrar</title>
+                <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+{% block extra_js %}
 <script>
+// Cargar fechas guardadas al iniciar
+document.addEventListener('DOMContentLoaded', function() {
+    const savedDates = JSON.parse(localStorage.getItem('calendarDates') || '{}');
+    
+    // Si hay fechas guardadas, establecerlas en los campos
+    if (savedDates.startDate) {
+        document.getElementById('start_date').value = savedDates.startDate;
+    }
+    
+    if (savedDates.endDate) {
+        document.getElementById('end_date').value = savedDates.endDate;
+    }
+    
+    // Si no hay fechas guardadas, establecer valores por defecto
+    if (!savedDates.startDate && !savedDates.endDate) {
+        const today = new Date();
+        
+        // Primer día del mes actual
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        
+        // Último día del mes actual
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        document.getElementById('start_date').value = formatDate(firstDay);
+        document.getElementById('end_date').value = formatDate(lastDay);
+    }
+});
+
+// Función para formatear fecha como YYYY-MM-DD
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function showToast(toastId, message) {
+    const toast = document.getElementById(toastId);
+    if (message) {
+        document.getElementById('errorMessage').textContent = message;
+    }
+    toast.classList.remove('hidden');
+    setTimeout(() => hideToast(toastId), 5000);
+}
+
+function hideToast(toastId) {
+    const toast = document.getElementById(toastId);
+    toast.classList.add('hidden');
+}
+
 function submitForm() {
     // Validar fechas
     const startDate = document.getElementById('start_date').value;
     const endDate = document.getElementById('end_date').value;
     
     if (!startDate || !endDate) {
-        alert('Por favor, selecciona las fechas de inicio y fin.');
+        showToast('errorToast', 'Por favor, selecciona las fechas de inicio y fin.');
         return;
     }
     
     if (new Date(endDate) < new Date(startDate)) {
-        alert('La fecha de fin no puede ser anterior a la fecha de inicio.');
+        showToast('errorToast', 'La fecha de fin no puede ser anterior a la fecha de inicio.');
         return;
     }
     
     // Obtener configuración del localStorage
     const config = localStorage.getItem('calendarConfig');
     if (!config) {
-        alert('No se ha encontrado configuración. Por favor, configura tus preferencias primero.');
+        showToast('errorToast', 'No se ha encontrado configuración. Por favor, configura tus preferencias primero.');
         return;
     }
+    
+    // Guardar fechas en localStorage
+    const datesToSave = {
+        startDate: startDate,
+        endDate: endDate
+    };
+    localStorage.setItem('calendarDates', JSON.stringify(datesToSave));
     
     // Añadir configuración al formulario
     document.getElementById('configData').value = config;
@@ -97,4 +168,5 @@ function submitForm() {
     document.getElementById('calculateForm').submit();
 }
 </script>
+{% endblock %}
 {% endblock %} 
