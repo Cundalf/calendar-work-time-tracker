@@ -1,57 +1,100 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="bg-white shadow rounded-lg p-6">
-    <h2 class="text-2xl font-bold mb-6">Calcular Tiempo de Trabajo</h2>
+<div class="form-container">
+    <div class="bg-white shadow rounded-lg p-4">
+        <h2 class="text-xl font-bold mb-4">Calcular Tiempo de Trabajo</h2>
+        
+        <form id="calculateForm" action="{{ url_for('calculate') }}" method="post" class="space-y-4">
+            <div class="space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label for="start_date" class="block text-xs font-medium text-gray-700">Fecha Inicio</label>
+                        <input type="date" id="start_date" name="start_date" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                    </div>
+                    <div>
+                        <label for="end_date" class="block text-xs font-medium text-gray-700">Fecha Fin</label>
+                        <input type="date" id="end_date" name="end_date" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" name="config" id="configData">
+            
+            <div class="pt-4">
+                <button type="button" onclick="submitForm()" 
+                        class="inline-flex justify-center py-1 px-3 border border-transparent shadow-sm text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Calcular
+                </button>
+            </div>
+        </form>
+    </div>
     
-    <form id="calculateForm" action="{{ url_for('calculate') }}" method="POST" class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label for="start_date" class="block text-sm font-medium text-gray-700">Fecha de Inicio</label>
-                <input type="date" id="start_date" name="start_date" required
-                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-            </div>
-            <div>
-                <label for="end_date" class="block text-sm font-medium text-gray-700">Fecha de Fin</label>
-                <input type="date" id="end_date" name="end_date" required
-                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-            </div>
+    {% if results %}
+    <div class="mt-6 bg-white shadow rounded-lg p-4">
+        <h2 class="text-xl font-bold mb-4">Resultados</h2>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Servicio</th>
+                        <th scope="col" class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Horas</th>
+                        <th scope="col" class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Porcentaje</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for service, hours, percentage in results %}
+                    <tr>
+                        <td class="px-3 py-2 whitespace-nowrap text-gray-900">{{ service }}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-900">{{ hours }}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-right text-gray-900">{{ percentage }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-gray-50">
+                    <tr>
+                        <th scope="row" class="px-3 py-2 text-left text-xs font-medium text-gray-500">Total</th>
+                        <td class="px-3 py-2 text-right font-medium">{{ total_hours }}</td>
+                        <td class="px-3 py-2 text-right font-medium">100%</td>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
-
-        <div class="pt-5">
-            <button type="button" onclick="submitForm()"
-                    class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Calcular
-            </button>
-        </div>
-    </form>
+    </div>
+    {% endif %}
 </div>
 
-{% block extra_js %}
 <script>
 function submitForm() {
-    const form = document.getElementById('calculateForm');
-    const config = JSON.parse(localStorage.getItem('calendarConfig') || '{}');
-    
     // Validar fechas
-    const startDate = new Date(document.getElementById('start_date').value);
-    const endDate = new Date(document.getElementById('end_date').value);
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
     
-    if (endDate < startDate) {
-        alert('La fecha de fin no puede ser anterior a la fecha de inicio');
+    if (!startDate || !endDate) {
+        alert('Por favor, selecciona las fechas de inicio y fin.');
+        return;
+    }
+    
+    if (new Date(endDate) < new Date(startDate)) {
+        alert('La fecha de fin no puede ser anterior a la fecha de inicio.');
+        return;
+    }
+    
+    // Obtener configuración del localStorage
+    const config = localStorage.getItem('calendarConfig');
+    if (!config) {
+        alert('No se ha encontrado configuración. Por favor, configura tus preferencias primero.');
         return;
     }
     
     // Añadir configuración al formulario
-    const configInput = document.createElement('input');
-    configInput.type = 'hidden';
-    configInput.name = 'config_data';
-    configInput.value = JSON.stringify(config);
-    form.appendChild(configInput);
+    document.getElementById('configData').value = config;
     
     // Enviar formulario
-    form.submit();
+    document.getElementById('calculateForm').submit();
 }
 </script>
-{% endblock %}
 {% endblock %} 
