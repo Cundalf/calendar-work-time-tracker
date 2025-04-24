@@ -46,7 +46,7 @@ def calculate():
             return redirect(url_for('dashboard'))
         
         # Obtener configuración del localStorage (se enviará desde el frontend)
-        config_data = request.form.get('config_data')
+        config_data = request.form.get('config')
         if not config_data:
             flash('Error: No se encontró la configuración del usuario', 'error')
             return redirect(url_for('dashboard'))
