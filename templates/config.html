@@ -21,6 +21,12 @@
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                     </div>
                 </div>
+                <div>
+                    <label for="lunch_duration_minutes" class="block text-xs font-medium text-gray-700">Duración del Almuerzo (minutos)</label>
+                    <input type="number" id="lunch_duration_minutes" name="lunch_duration_minutes" min="0" max="180" step="5"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                    <p class="mt-1 text-xs text-gray-500">Tiempo de almuerzo que se descuenta del día laboral.</p>
+                </div>
             </div>
 
             <!-- Servicios -->
@@ -192,6 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cargar valores por defecto si no hay configuración
     if (!config.work_start_time) config.work_start_time = '09:00';
     if (!config.work_end_time) config.work_end_time = '18:00';
+    if (!config.lunch_duration_minutes) config.lunch_duration_minutes = 60;
     if (!config.default_service) config.default_service = 'SERVICIO PRINCIPAL';
     if (!config.ooo_service) config.ooo_service = 'FUERA DE OFICINA';
     if (!config.focus_time_service) config.focus_time_service = 'TIEMPO DE CONCENTRACIÓN';
@@ -201,6 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Establecer valores en los campos
     document.getElementById('work_start_time').value = config.work_start_time;
     document.getElementById('work_end_time').value = config.work_end_time;
+    document.getElementById('lunch_duration_minutes').value = config.lunch_duration_minutes;
     document.getElementById('default_service').value = config.default_service;
     document.getElementById('ooo_service').value = config.ooo_service;
     document.getElementById('focus_time_service').value = config.focus_time_service;
@@ -391,6 +399,7 @@ function saveConfig() {
     const config = {
         work_start_time: document.getElementById('work_start_time').value,
         work_end_time: document.getElementById('work_end_time').value,
+        lunch_duration_minutes: parseInt(document.getElementById('lunch_duration_minutes').value) || 60,
         default_service: document.getElementById('default_service').value,
         ooo_service: document.getElementById('ooo_service').value,
         focus_time_service: document.getElementById('focus_time_service').value,
