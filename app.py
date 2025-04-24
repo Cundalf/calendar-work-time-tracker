@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import os
 from dotenv import load_dotenv
-from calendar_time_tracker import authenticate_google_calendar, get_calendar_timezone, get_events, calculate_weekly_summary
+from calendar_time_tracker import authenticate_google_calendar, get_calendar_timezone, get_events, calculate_weekly_summary, format_timedelta
 import json
+from collections import defaultdict
 
 load_dotenv()
 
@@ -57,10 +58,71 @@ def calculate():
             events, start_date, end_date, timezone,
             datetime.strptime(config['work_start_time'], '%H:%M').time(),
             datetime.strptime(config['work_end_time'], '%H:%M').time(),
-            [0, 1, 2, 3, 4]  # Lunes a Viernes
+            [0, 1, 2, 3, 4],  # Lunes a Viernes
+            config  # Pasar la configuración completa para usar color_tags y servicios
         )
         
-        return render_template('results.html', weekly_summary=weekly_summary)
+        # Procesar resultados para enviar a la plantilla
+        processed_summary = []
+        period_totals = defaultdict(timedelta)
+        grand_total_time = timedelta()
+        
+        # Procesar resumen semanal
+        sorted_weeks = sorted(weekly_summary.keys())
+        for week_start_date in sorted_weeks:
+            week_end_date = week_start_date + timedelta(days=6)
+            display_week_end = min(week_end_date, end_date)
+            
+            week_data = weekly_summary[week_start_date]
+            if not week_data:
+                continue
+                
+            sorted_services = sorted(week_data.keys())
+            week_services = []
+            total_week_hours = timedelta()
+            
+            for service_name in sorted_services:
+                duration = week_data[service_name]
+                if duration > timedelta(seconds=1):
+                    week_services.append({
+                        'name': service_name,
+                        'duration': format_timedelta(duration),
+                        'raw_duration': duration
+                    })
+                    total_week_hours += duration
+                    period_totals[service_name] += duration
+                    grand_total_time += duration
+            
+            processed_summary.append({
+                'start_date': week_start_date.strftime('%d/%m'),
+                'end_date': display_week_end.strftime('%d/%m/%Y'),
+                'services': week_services,
+                'total_hours': format_timedelta(total_week_hours),
+                'raw_total': total_week_hours
+            })
+        
+        # Procesar totales del periodo
+        period_summary = []
+        if period_totals:
+            for service_name, duration in sorted(period_totals.items()):
+                if duration > timedelta(seconds=1):
+                    # Calcular porcentaje
+                    percentage = (duration.total_seconds() / grand_total_time.total_seconds()) * 100 if grand_total_time.total_seconds() > 0 else 0
+                    
+                    period_summary.append({
+                        'name': service_name,
+                        'duration': format_timedelta(duration),
+                        'percentage': round(percentage, 1)
+                    })
+        
+        return render_template(
+            'results.html', 
+            weekly_summary=processed_summary,
+            period_summary=period_summary,
+            start_date=start_date.strftime('%d/%m/%Y'),
+            end_date=end_date.strftime('%d/%m/%Y'),
+            total_hours=format_timedelta(grand_total_time)
+        )
         
     except Exception as e:
         flash(f'Error inesperado: {str(e)}', 'error')
