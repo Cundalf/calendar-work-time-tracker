@@ -88,11 +88,12 @@
         </span>
     </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
 // Colores disponibles
-const colors = {
+const colorOptions = {
     '1': { name: 'Lavanda', color: '#a4bdfc' },
     '2': { name: 'Salvia', color: '#7ae7bf' },
     '3': { name: 'Uva', color: '#dbadff' },
@@ -154,22 +155,20 @@ function addColorTag(colorId = '', serviceName = '') {
     select.className = 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm';
     
     // Añadir opciones de color
-    for (const [id, color] of Object.entries(colors)) {
+    for (const [id, color] of Object.entries(colorOptions)) {
         const option = document.createElement('option');
         option.value = id;
-        
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flex items-center space-x-2';
+        option.textContent = color.name;
+        if (id === colorId) option.selected = true;
         
         const colorDot = document.createElement('span');
         colorDot.className = 'color-dot';
         colorDot.style.backgroundColor = color.color;
         
-        const colorName = document.createElement('span');
-        colorName.textContent = color.name;
-        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center space-x-2';
         wrapper.appendChild(colorDot);
-        wrapper.appendChild(colorName);
+        wrapper.appendChild(document.createTextNode(color.name));
         
         option.appendChild(wrapper);
         select.appendChild(option);
@@ -243,5 +242,4 @@ function saveConfig() {
 
 document.getElementById('use_color_tags').addEventListener('change', toggleColorTags);
 </script>
-{% endblock %}
 {% endblock %} 
