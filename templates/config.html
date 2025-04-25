@@ -372,7 +372,7 @@ function addColorTag(colorId = '', serviceName = '') {
         colorDot.style.backgroundColor = color.color;
         
         option.appendChild(colorDot);
-        option.appendChild(document.createTextNode(color.name));
+        option.appendChild(document.createTextNode(`${id}: ${color.name}`));
         
         // Al hacer clic en una opción
         option.addEventListener('click', function() {
@@ -475,7 +475,7 @@ function updateCustomSelectButton(button, colorId) {
     colorDot.style.backgroundColor = color.color;
     
     button.appendChild(colorDot);
-    button.appendChild(document.createTextNode(color.name));
+    button.appendChild(document.createTextNode(`${colorId}: ${color.name}`));
 }
 
 function removeColorTag(button) {
