@@ -30,6 +30,14 @@ SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 # Variable global para almacenar el flujo de autenticación en curso
 _current_flow = None
 
+# Función para limpiar variables de entorno con comentarios
+def clean_env_value(value):
+    if value and isinstance(value, str):
+        # Si hay un # que no está al inicio, considerarlo como inicio de comentario
+        if '#' in value and not value.startswith('#'):
+            return value.split('#')[0].strip()
+    return value
+
 # --- FUNCIONES PRINCIPALES ---
 
 def get_oauth_flow(force_new=False):
@@ -38,9 +46,9 @@ def get_oauth_flow(force_new=False):
     
     if _current_flow is None or force_new:
         # Comprobar si existen variables de entorno para las credenciales
-        client_id = os.environ.get('GOOGLE_CLIENT_ID')
-        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
-        redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
+        client_id = clean_env_value(os.environ.get('GOOGLE_CLIENT_ID'))
+        client_secret = clean_env_value(os.environ.get('GOOGLE_CLIENT_SECRET'))
+        redirect_uri = clean_env_value(os.environ.get('GOOGLE_REDIRECT_URI'))
         
         if client_id and client_secret:
             client_config = {

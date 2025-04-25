@@ -21,15 +21,23 @@ from calendar_time_tracker import (
     credentials_to_dict
 )
 
+# Función para limpiar variables de entorno de comentarios
+def clean_env_value(value):
+    if value and isinstance(value, str):
+        # Si hay un # que no está al inicio, considerarlo como inicio de comentario
+        if '#' in value and not value.startswith('#'):
+            return value.split('#')[0].strip()
+    return value
+
 # Cargar variables de entorno
 load_dotenv()
 
 # Configuración de la aplicación
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave_por_defecto_no_usar_en_produccion')
-app.config['SESSION_TYPE'] = os.getenv('SESSION_STORAGE', 'filesystem')
+app.config['SECRET_KEY'] = clean_env_value(os.getenv('SECRET_KEY', 'clave_por_defecto_no_usar_en_produccion'))
+app.config['SESSION_TYPE'] = clean_env_value(os.getenv('SESSION_STORAGE', 'filesystem'))
 # Extraer solo el valor numérico, eliminando cualquier comentario
-session_lifetime = os.getenv('SESSION_LIFETIME', '3600') # Reducir a 1 hora por defecto
+session_lifetime = clean_env_value(os.getenv('SESSION_LIFETIME', '3600')) # Reducir a 1 hora por defecto
 if session_lifetime and ' ' in session_lifetime:
     session_lifetime = session_lifetime.split(' ')[0]
 app.config['PERMANENT_SESSION_LIFETIME'] = int(session_lifetime)
@@ -40,7 +48,8 @@ app.config['SESSION_FILE_THRESHOLD'] = 500  # Límite de archivos en filesystem 
 app.config['SESSION_PERMANENT'] = False  # Por defecto sesiones no permanentes
 
 # Configuración para forzar que las cookies sean enviadas solo en conexiones seguras en producción
-if os.getenv('FLASK_ENV') != 'development':
+env = clean_env_value(os.getenv('FLASK_ENV', 'production'))
+if env != 'development':
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -309,23 +318,38 @@ def calculate():
         period_totals = defaultdict(timedelta)
         grand_total_time = timedelta()
         
-        # Procesar resumen semanal
+        # Procesar resumen semanal - CORREGIDO para manejar el formato correcto
         sorted_weeks = sorted(weekly_summary.keys())
         for week_key in sorted_weeks:
-            week_data = weekly_summary[week_key]
+            week_services = weekly_summary[week_key]
+            week_total = timedelta()
             
-            # Agregar los totales de esta semana a los totales del período
-            for day in week_data['days'].values():
-                for service, time_spent in day['services'].items():
-                    period_totals[service] += time_spent
-                    grand_total_time += time_spent
+            # Crear descripción de la semana
+            week_end = week_key + timedelta(days=6)
+            week_description = f"{week_key.strftime('%d/%m/%Y')} - {week_end.strftime('%d/%m/%Y')}"
+            
+            # Agregar los totales de servicios de esta semana a los totales del período
+            services_in_week = {}
+            for service, time_spent in week_services.items():
+                period_totals[service] += time_spent
+                grand_total_time += time_spent
+                week_total += time_spent
+                services_in_week[service] = {
+                    'time': time_spent,
+                    'formatted': format_timedelta(time_spent)
+                }
+            
+            # Crear estructura de días para mantener compatibilidad con la plantilla
+            # (La estructura actual no tiene desglose por días, solo por semana)
+            days = {}
             
             processed_summary.append({
                 'week': week_key,
-                'week_description': week_data['description'],
-                'days': week_data['days'],
-                'week_total': week_data['total'],
-                'week_total_formatted': format_timedelta(week_data['total'])
+                'week_description': week_description,
+                'days': days,
+                'services': services_in_week,
+                'week_total': week_total,
+                'week_total_formatted': format_timedelta(week_total)
             })
         
         # Convertir los totales del período a formato legible
@@ -341,10 +365,61 @@ def calculate():
             flash('No se encontraron datos para el período seleccionado', 'warning')
             return redirect(url_for('dashboard'))
         
+        # Preparar resumen de período para la plantilla
+        period_summary = []
+        for service, time_data in formatted_period_totals.items():
+            percentage = 0
+            if grand_total_time.total_seconds() > 0:
+                percentage = round((time_data['time'].total_seconds() / grand_total_time.total_seconds()) * 100, 1)
+            
+            period_summary.append({
+                'name': service,
+                'duration': time_data['formatted'],
+                'percentage': percentage
+            })
+        
+        # Ordenar por porcentaje descendente
+        period_summary.sort(key=lambda x: x['percentage'], reverse=True)
+        
+        # Preparar resumen de semanas para la plantilla
+        weekly_summary = []
+        for week_data in processed_summary:
+            services_list = []
+            for service_name, service_data in week_data['services'].items():
+                services_list.append({
+                    'name': service_name,
+                    'duration': service_data['formatted'],
+                    'color': None  # Opcionalmente, se podría añadir color si está disponible en la configuración
+                })
+            
+            # Ordenar servicios por nombre
+            services_list.sort(key=lambda x: x['name'])
+            
+            weekly_summary.append({
+                'start_date': week_data['week'].strftime('%d/%m/%Y'),
+                'end_date': (week_data['week'] + timedelta(days=6)).strftime('%d/%m/%Y'),
+                'services': services_list,
+                'total_hours': week_data['week_total_formatted']
+            })
+        
+        # Preparar resumen de configuración
+        config_summary = {
+            'work_time': f"{config['work_start_time']} - {config['work_end_time']}",
+            'lunch': f"{config['lunch_duration_minutes']} min",
+            'default_service': config['default_service'],
+            'use_color_tags': config['use_color_tags']
+        }
+        
         # Si hay resultados, mostrar la tabla
-        return render_template('results.html', weeks=processed_summary, 
-                            period_totals=formatted_period_totals, 
-                            grand_total=format_timedelta(grand_total_time))
+        return render_template(
+            'results.html',
+            weekly_summary=weekly_summary,
+            period_summary=period_summary,
+            start_date=start_date.strftime('%d/%m/%Y'),
+            end_date=end_date.strftime('%d/%m/%Y'),
+            total_hours=format_timedelta(grand_total_time),
+            config_summary=config_summary
+        )
     except Exception as e:
         logger.error(f"Error inesperado: {e}")
         flash(f'Error al procesar la solicitud: {str(e)}', 'error')
@@ -378,10 +453,10 @@ def debug_session():
 # Usar gunicorn o similar
 if __name__ == '__main__':
     # Configuración según el entorno
-    env = os.getenv('FLASK_ENV', 'production')
+    env = clean_env_value(os.getenv('FLASK_ENV', 'production'))
     debug_mode = env == 'development'
-    host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', 5000))
+    host = clean_env_value(os.getenv('HOST', '0.0.0.0'))
+    port = int(clean_env_value(os.getenv('PORT', 5000)))
     
     if debug_mode:
         logger.info(f"Iniciando en modo desarrollo: http://{host}:{port}")
