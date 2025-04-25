@@ -48,6 +48,12 @@
                         <input type="text" id="focus_time_service" name="focus_time_service"
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
                     </div>
+                    <div>
+                        <label for="unlabeled_service" class="block text-xs font-medium text-gray-700">Servicio para Eventos Sin Etiqueta</label>
+                        <input type="text" id="unlabeled_service" name="unlabeled_service"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                        <p class="mt-1 text-xs text-gray-500">Se usa cuando "Agrupar sin etiqueta" está activo.</p>
+                    </div>
                 </div>
             </div>
 
@@ -59,6 +65,15 @@
                     <label for="use_color_tags" class="ml-2 block text-xs text-gray-900">
                         Usar Etiquetas de Color
                     </label>
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" id="group_unlabeled" name="group_unlabeled"
+                           class="h-3.5 w-3.5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="group_unlabeled" class="ml-2 block text-xs text-gray-900">
+                        Agrupar sin etiqueta
+                    </label>
+                    <span class="ml-2 text-xs text-gray-500">(Los eventos sin etiqueta configurada se agruparán como "Sin Etiqueta")</span>
                 </div>
 
                 <div id="color_tags_container" class="space-y-3 hidden">
@@ -202,6 +217,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!config.default_service) config.default_service = 'SERVICIO PRINCIPAL';
     if (!config.ooo_service) config.ooo_service = 'FUERA DE OFICINA';
     if (!config.focus_time_service) config.focus_time_service = 'TIEMPO DE CONCENTRACIÓN';
+    if (!config.unlabeled_service) config.unlabeled_service = 'SIN ETIQUETA';
+    if (config.group_unlabeled === undefined) config.group_unlabeled = false;
     if (!config.use_color_tags) config.use_color_tags = false;
     if (!config.color_tags) config.color_tags = {};
 
@@ -212,6 +229,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('default_service').value = config.default_service;
     document.getElementById('ooo_service').value = config.ooo_service;
     document.getElementById('focus_time_service').value = config.focus_time_service;
+    document.getElementById('unlabeled_service').value = config.unlabeled_service;
+    document.getElementById('group_unlabeled').checked = config.group_unlabeled;
     document.getElementById('use_color_tags').checked = config.use_color_tags;
     
     // Mostrar/ocultar contenedor de etiquetas
@@ -403,6 +422,8 @@ function saveConfig() {
         default_service: document.getElementById('default_service').value,
         ooo_service: document.getElementById('ooo_service').value,
         focus_time_service: document.getElementById('focus_time_service').value,
+        unlabeled_service: document.getElementById('unlabeled_service').value,
+        group_unlabeled: document.getElementById('group_unlabeled').checked,
         use_color_tags: document.getElementById('use_color_tags').checked,
         color_tags: {}
     };

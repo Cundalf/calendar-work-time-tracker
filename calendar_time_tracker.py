@@ -136,21 +136,33 @@ def assign_service(event, config):
     """Asignar servicio a un evento según la configuración"""
     # Obtener valores de la configuración
     color_id_to_service = config.get('color_tags', {})
+    use_color_tags = config.get('use_color_tags', False)
+    group_unlabeled = config.get('group_unlabeled', False)
     ooo_service = config.get('ooo_service', '')
     focus_time_service = config.get('focus_time_service', '')
     default_service = config.get('default_service', '')
+    unlabeled_service = config.get('unlabeled_service', 'SIN ETIQUETA')
     
     # Lógica de asignación de servicio
     color_id = event.get('colorId')
     event_type = event.get('eventType', 'default')
     
-    if color_id and color_id in color_id_to_service:
-        return color_id_to_service[color_id]
+    # Primero, manejar casos especiales
     if event_type == 'outOfOffice' and ooo_service: 
         return ooo_service
     if event_type == 'focusTime' and focus_time_service: 
         return focus_time_service
     
+    # Luego, verificar etiquetas de color si están habilitadas
+    if use_color_tags and color_id and color_id in color_id_to_service:
+        return color_id_to_service[color_id]
+    
+    # Finalmente, para eventos sin etiqueta configurada o sin color
+    if use_color_tags and group_unlabeled and color_id:
+        # Si tiene color pero no está en la configuración
+        return unlabeled_service
+    
+    # Eventos sin color o para casos restantes
     return default_service
 
 def format_timedelta(td):
@@ -241,7 +253,6 @@ def calculate_weekly_summary(events, start_date, end_date, timezone, work_start_
 
                 # Valores desde la configuración
                 ooo_service = config.get('ooo_service', '')
-                default_service = config.get('default_service', '')
 
                 if start_dt.date() <= temp_date <= end_dt.date():
                     if is_all_day:
