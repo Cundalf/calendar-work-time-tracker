@@ -7,6 +7,7 @@ from collections import defaultdict
 # Third-party imports
 import pytz
 from dateutil.relativedelta import relativedelta, MO
+import os
 
 # Importar tzlocal si está disponible
 try:
@@ -32,10 +33,11 @@ def authenticate_google_calendar():
     token_file = 'token.pickle'
     credentials_file = 'credentials.json'
 
-    if not os.path.exists(credentials_file):
-        print(f"Error: No se encontró '{credentials_file}'.")
-        return None
-
+    # Comprobar si existen variables de entorno para las credenciales
+    client_id = os.environ.get('GOOGLE_CLIENT_ID')
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
+    
     # Cargar credenciales existentes
     if os.path.exists(token_file):
         try: 
@@ -59,7 +61,25 @@ def authenticate_google_calendar():
         # Si aún no hay credenciales válidas, iniciar flujo de autenticación
         if not creds:
             try:
-                flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
+                # Usar variables de entorno si están disponibles
+                if client_id and client_secret:
+                    client_config = {
+                        "installed": {
+                            "client_id": client_id,
+                            "client_secret": client_secret,
+                            "redirect_uris": [redirect_uri or "http://localhost"],
+                            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                            "token_uri": "https://oauth2.googleapis.com/token"
+                        }
+                    }
+                    flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+                # De lo contrario, intentar usar el archivo de credenciales
+                elif os.path.exists(credentials_file):
+                    flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
+                else:
+                    print(f"Error: No se encontró '{credentials_file}' ni variables de entorno GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET.")
+                    return None
+                    
                 creds = flow.run_local_server(port=0)
                 
                 # Verificar que creds sea una instancia de Credentials

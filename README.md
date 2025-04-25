@@ -48,17 +48,40 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Configuración de Google Cloud y Credenciales
+### 4. Configurar Credenciales de Google
+
+#### 4.1 Configuración en Desarrollo (usando credentials.json)
 
 1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
-2. Crea un nuevo proyecto
-3. Habilita la API de Google Calendar
+2. Crea un nuevo proyecto o selecciona uno existente
+3. Habilita la API de Google Calendar para tu proyecto
 4. Crea Credenciales OAuth:
    - Ve a "APIs y servicios" -> "Credenciales"
    - Crea un ID de cliente OAuth para aplicación web
    - Configura las URI de redireccionamiento (generalmente `http://localhost:5000` para desarrollo)
    - Descarga el archivo JSON de credenciales y renómbralo a `credentials.json`
    - Coloca este archivo en la raíz del proyecto
+
+#### 4.2 Configuración en Producción (usando variables de entorno)
+
+Para entornos de producción, es más seguro y flexible usar variables de entorno en lugar del archivo `credentials.json`:
+
+1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
+2. Crea un nuevo proyecto o selecciona uno existente
+3. Habilita la API de Google Calendar para tu proyecto
+4. Crea Credenciales OAuth para Web:
+   - Ve a "APIs y servicios" -> "Credenciales"
+   - Crea un ID de cliente OAuth para aplicación web
+   - Configura las URI de redireccionamiento con la URL de tu aplicación en producción
+5. Anota el Client ID y Client Secret
+6. Configura las siguientes variables de entorno en tu servidor:
+   ```
+   GOOGLE_CLIENT_ID=tu_client_id
+   GOOGLE_CLIENT_SECRET=tu_client_secret
+   GOOGLE_REDIRECT_URI=https://tu-dominio.com
+   ```
+
+La aplicación intentará primero usar las variables de entorno, y si no están disponibles, buscará el archivo `credentials.json`.
 
 ### 5. Configurar Variables de Entorno
 

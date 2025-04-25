@@ -8,11 +8,15 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./credentials.json:/app/credentials.json:ro
+      # El archivo credentials.json es opcional si se usan variables de entorno
+      - ${CREDENTIALS_PATH:-./credentials.json}:/app/credentials.json:ro
       - ./logs:/app/logs
       - ./.env:/app/.env:ro
       # El token.pickle se montará si existe, pero se generará cuando el usuario haga login
       - ${PWD}/token.pickle:/app/token.pickle:rw
     environment:
       - TZ=America/Argentina/Buenos_Aires
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
     command: gunicorn --workers=4 --bind=0.0.0.0:5000 wsgi:app 

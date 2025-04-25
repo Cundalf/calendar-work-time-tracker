@@ -6,7 +6,7 @@ Este documento explica cómo desplegar Calendar Work Time Tracker utilizando Doc
 
 - Docker instalado en el servidor
 - Docker Compose instalado en el servidor
-- Archivo `credentials.json` (obligatorio)
+- Credenciales de Google para acceder a Google Calendar (archivo `credentials.json` o variables de entorno)
 - No es necesario tener el `token.pickle` previamente, se generará automáticamente
 
 ## Pasos para el despliegue
@@ -22,9 +22,23 @@ nano .env
 
 Asegúrate de configurar una `SECRET_KEY` segura y valores adecuados para tu entorno.
 
-### 2. Asegúrate de tener el archivo credentials.json
+### 2. Configurar las credenciales de Google Calendar
+
+Tienes dos opciones para configurar las credenciales:
+
+#### Opción 1: Usando el archivo credentials.json
 
 El archivo `credentials.json` debe estar en el directorio raíz del proyecto. Este archivo contiene las credenciales de Google para acceder a Google Calendar.
+
+#### Opción 2: Usando variables de entorno (recomendado para producción)
+
+Añade las siguientes variables al archivo `.env`:
+
+```
+GOOGLE_CLIENT_ID=tu_client_id
+GOOGLE_CLIENT_SECRET=tu_client_secret
+GOOGLE_REDIRECT_URI=https://tu-dominio.com
+```
 
 ### 3. Construye y ejecuta el contenedor
 
@@ -76,9 +90,9 @@ docker-compose up -d
 
 Los siguientes archivos son importantes y deben ser respaldados:
 
-- `credentials.json`: Credenciales de Google Calendar
+- `.env`: Configuración de la aplicación e incluye credenciales de Google si usas variables de entorno
+- `credentials.json`: Credenciales de Google Calendar (si usas este método)
 - `token.pickle`: Token de autenticación (generado automáticamente)
-- `.env`: Configuración de la aplicación
 - `logs/`: Directorio de logs
 
 ### 8. Configuración con Nginx (Opcional)
@@ -94,35 +108,16 @@ Si tienes problemas para generar el token.pickle:
 1. Asegúrate de que el servidor tiene acceso a internet
 2. Verifica que puedes acceder a la aplicación desde un navegador
 3. Comprueba que el directorio donde se ejecuta docker-compose tiene permisos de escritura
-4. Revisa los logs para ver posibles errores:
-   ```bash
-   docker logs calendar-work-time-tracker
-   ```
 
-#### Permisos de archivos
+#### Problemas con credenciales
 
-Si hay problemas con permisos de archivos dentro del contenedor:
+Si tienes problemas con la autenticación:
 
-```bash
-# Asegurar que los archivos tienen los permisos adecuados
-chmod 644 credentials.json .env
-chmod -R 777 logs
-# Si ya tienes un token.pickle:
-chmod 664 token.pickle
-```
-
-#### Logs del contenedor
-
-Para ver los logs del contenedor:
+1. Verifica que estás usando las credenciales correctas (variables de entorno o archivo)
+2. Asegúrate de que las URIs de redirección en Google Cloud Console son correctas
+3. Prueba eliminando el token.pickle y volviendo a autenticarte
 
 ```bash
-docker logs -f calendar-work-time-tracker
-```
-
-#### Entrar al contenedor
-
-Para entrar al contenedor y depurar problemas:
-
-```bash
-docker exec -it calendar-work-time-tracker bash
+rm token.pickle
+docker-compose restart
 ``` 

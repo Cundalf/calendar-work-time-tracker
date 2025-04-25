@@ -61,8 +61,25 @@ python -c "import secrets; print(secrets.token_hex(24))"
 
 ## 5. Configurar Credenciales de Google Calendar
 
+Tienes dos opciones para configurar las credenciales de Google Calendar:
+
+### Opción 1: Usando el archivo credentials.json (método tradicional)
+
 1. Copia tu archivo `credentials.json` en el directorio raíz
 2. La primera vez que se ejecute la aplicación, deberás seguir el flujo de autorización
+
+### Opción 2: Usando variables de entorno (recomendado para producción)
+
+1. Añade las siguientes variables a tu archivo `.env`:
+```
+GOOGLE_CLIENT_ID=tu_client_id
+GOOGLE_CLIENT_SECRET=tu_client_secret
+GOOGLE_REDIRECT_URI=https://tu-dominio.com
+```
+2. Asegúrate de que las URIs de redirección en la Consola de Google Cloud apunten a tu dominio
+3. No necesitas el archivo `credentials.json` si usas este método
+
+Nota: Si ambos métodos están configurados, la aplicación dará prioridad a las variables de entorno.
 
 ## 6. Configurar Nginx
 
@@ -130,8 +147,8 @@ sudo systemctl restart calendar-app
 ## 11. Respaldo de Datos
 
 Es importante hacer respaldo de:
-- Archivo `.env`
-- Archivo `credentials.json`
+- Archivo `.env` (incluye configuración y credenciales OAuth si usas variables de entorno)
+- Archivo `credentials.json` (si usas este método de autenticación)
 - Archivo `token.pickle`
 
 Estos archivos contienen la configuración y la autenticación con Google Calendar.
