@@ -526,10 +526,7 @@ function hideImportPopup(reload) {
     }
 }
 
-function saveConfig(event) {
-    // Prevenir el envío del formulario por defecto
-    event.preventDefault();
-    
+function validateForm() {
     // Validar que todos los campos obligatorios estén llenos
     const requiredFields = [
         { id: 'work_start_time', name: 'Hora de Inicio' },
@@ -547,7 +544,7 @@ function saveConfig(event) {
         if (!element.value.trim()) {
             showToast('errorToast', `El campo "${field.name}" no puede estar vacío`);
             element.focus();
-            return;
+            return false;
         }
     }
     
@@ -557,7 +554,7 @@ function saveConfig(event) {
         
         if (colorTags.length === 0) {
             showToast('errorToast', 'Debe agregar al menos una etiqueta de color');
-            return;
+            return false;
         }
         
         for (const tag of colorTags) {
@@ -565,9 +562,23 @@ function saveConfig(event) {
             if (!serviceName) {
                 showToast('errorToast', 'Todas las etiquetas de color deben tener un nombre de servicio');
                 tag.querySelector('input[type="text"]').focus();
-                return;
+                return false;
             }
         }
+    }
+    
+    return true;
+}
+
+function saveConfig(event) {
+    // Prevenir el envío del formulario por defecto
+    if (event) {
+        event.preventDefault();
+    }
+    
+    // Validar formulario primero
+    if (!validateForm()) {
+        return false;
     }
     
     const config = {
@@ -593,10 +604,28 @@ function saveConfig(event) {
         }
     });
 
-    // Guardar en localStorage
+    // Guardar en localStorage con manejo de errores más robusto
     try {
+        // Limpiar cualquier configuración existente primero
+        localStorage.removeItem('calendarConfig');
+        
+        // Convertir a JSON
         const configJson = JSON.stringify(config);
+        
+        // Guardar en localStorage
         localStorage.setItem('calendarConfig', configJson);
+        
+        // Verificar que se guardó correctamente
+        const savedConfig = localStorage.getItem('calendarConfig');
+        if (!savedConfig) {
+            throw new Error('No se pudo verificar la configuración guardada');
+        }
+        
+        // Verificar que los datos son los mismos que guardamos
+        const savedConfigObj = JSON.parse(savedConfig);
+        if (JSON.stringify(savedConfigObj) !== configJson) {
+            throw new Error('La configuración guardada no coincide con la original');
+        }
         
         // Mostrar toast de éxito con información sobre lo guardado
         const successMessage = `
@@ -609,8 +638,11 @@ function saveConfig(event) {
         
         // Log para debug
         console.log('Configuración guardada:', config);
+        return true;
     } catch (error) {
         showToast('errorToast', `Error al guardar la configuración: ${error.message}`);
+        console.error('Error completo al guardar configuración:', error);
+        return false;
     }
 }
 

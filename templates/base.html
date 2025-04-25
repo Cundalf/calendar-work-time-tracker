@@ -4,7 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Calendar Work Time Tracker - Herramienta para calcular y analizar el tiempo dedicado a diferentes actividades según Google Calendar">
+    <!-- Meta tags para prevenir cache -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>{% block title %}CWTT{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
     <link href="{{ url_for('static', filename='css/tailwind.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/flowbite.min.css') }}" rel="stylesheet" />
     <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
@@ -212,5 +217,36 @@
         });
     </script>
     {% block extra_js %}{% endblock %}
+
+    <!-- Script global para verificar el localStorage en cada carga -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Añadir un parámetro de tiempo en cada página para evitar caché
+            const urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.has('_t')) {
+                const timestamp = new Date().getTime();
+                const newUrl = window.location.pathname + '?_t=' + timestamp + 
+                    (window.location.search ? '&' + window.location.search.substring(1) : '');
+                window.history.replaceState({}, document.title, newUrl);
+            }
+            
+            // Verificar si hay configuración en localStorage y asegurar que es accesible
+            try {
+                const config = localStorage.getItem('calendarConfig');
+                console.log('Configuración al cargar la página:', config);
+                
+                // Si hay configuración, intentar parsearla para verificar
+                if (config) {
+                    const configObj = JSON.parse(config);
+                    console.log('Configuración parseada correctamente:', configObj);
+                    
+                    // Guardar de nuevo para asegurar persistencia
+                    localStorage.setItem('calendarConfig', JSON.stringify(configObj));
+                }
+            } catch (error) {
+                console.error('Error al verificar configuración:', error);
+            }
+        });
+    </script>
 </body>
 </html> 

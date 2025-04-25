@@ -5,7 +5,7 @@ from datetime import datetime, time, timedelta
 from collections import defaultdict
 
 # Third-party imports
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, make_response
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -130,6 +130,14 @@ def validate_config(config_data):
 def inject_now():
     return {'now': datetime.now()}
 
+# Agregar encabezados de no caché a todas las respuestas
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 # Rutas
 @app.route('/')
 def index():
@@ -226,6 +234,11 @@ def calculate():
         logger.info(f"Solicitud POST recibida: {request.form}")
         logger.info(f"Headers recibidos: {dict(request.headers)}")
         
+        # Verificar si hay un timestamp para prevenir caché
+        timestamp = request.form.get('timestamp')
+        if timestamp:
+            logger.info(f"Timestamp recibido: {timestamp} - {datetime.fromtimestamp(int(timestamp)/1000).strftime('%Y-%m-%d %H:%M:%S')}")
+        
         start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d').date()
         end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d').date()
         
@@ -238,7 +251,8 @@ def calculate():
         form_data = {
             'start_date': request.form['start_date'],
             'end_date': request.form['end_date'],
-            'config': request.form.get('config', '{}')
+            'config': request.form.get('config', '{}'),
+            'timestamp': timestamp  # Añadir timestamp para prevenir caché
         }
         session['form_data'] = form_data
         logger.debug(f"Datos guardados en sesión: {form_data}")
