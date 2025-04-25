@@ -5,7 +5,7 @@ from datetime import datetime, time, timedelta
 from collections import defaultdict
 
 # Third-party imports
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -15,7 +15,10 @@ from calendar_time_tracker import (
     get_calendar_timezone, 
     get_events, 
     calculate_weekly_summary, 
-    format_timedelta
+    format_timedelta,
+    get_authorization_url,
+    complete_oauth_flow,
+    credentials_to_dict
 )
 
 # Cargar variables de entorno
@@ -24,6 +27,12 @@ load_dotenv()
 # Configuración de la aplicación
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave_por_defecto_no_usar_en_produccion')
+app.config['SESSION_TYPE'] = 'filesystem'
+# Extraer solo el valor numérico, eliminando cualquier comentario
+session_lifetime = os.getenv('SESSION_LIFETIME', '86400')
+if session_lifetime and ' ' in session_lifetime:
+    session_lifetime = session_lifetime.split(' ')[0]
+app.config['PERMANENT_SESSION_LIFETIME'] = int(session_lifetime)  # 24 horas por defecto
 
 # Configuración de logs
 log_level = os.getenv('LOG_LEVEL', 'INFO')
@@ -52,6 +61,11 @@ logger.add(lambda msg: print(msg), level="WARNING", format=log_format)  # Solo w
 DEFAULT_WORK_START = time(9, 0)  # 9:00 AM
 DEFAULT_WORK_END = time(17, 0)   # 5:00 PM
 
+# Contexto global para las plantillas
+@app.context_processor
+def inject_now():
+    return {'now': datetime.now()}
+
 # Rutas
 @app.route('/')
 def index():
@@ -65,6 +79,82 @@ def dashboard():
 def config():
     return render_template('config.html')
 
+@app.route('/privacy-policy')
+def privacy_policy():
+    """Mostrar la política de privacidad y uso de cookies"""
+    return render_template('privacy_policy.html')
+
+@app.route('/auth')
+def auth():
+    """Mostrar página de autenticación con Google"""
+    # Guardar la URL a la que redirigir después de la autenticación
+    next_url = request.args.get('next', url_for('dashboard'))
+    session['next_url'] = next_url
+    
+    # Obtener URL de autorización
+    auth_url = get_authorization_url()
+    
+    logger.info("Mostrando página de autenticación con Google")
+    return render_template('auth.html', auth_url=auth_url)
+
+@app.route('/auth/google')
+def auth_google():
+    """Iniciar el flujo de autenticación con Google"""
+    # Guardar la URL a la que redirigir después de la autenticación
+    next_url = request.args.get('next', url_for('dashboard'))
+    session['next_url'] = next_url
+    
+    # Obtener URL de autorización
+    auth_url = get_authorization_url()
+    if not auth_url:
+        flash('Error al generar URL de autorización. Verifique la configuración.', 'error')
+        logger.error("Error al generar URL de autorización de Google")
+        return redirect(url_for('dashboard'))
+    
+    logger.info("Redirigiendo a Google para autenticación")
+    return redirect(auth_url)
+
+@app.route('/oauth2callback')
+def oauth2callback():
+    """Manejar la respuesta de Google OAuth"""
+    error = request.args.get('error', '')
+    if error:
+        flash(f'Error en la autenticación: {error}', 'error')
+        logger.error(f"Error en callback OAuth: {error}")
+        return redirect(url_for('dashboard'))
+    
+    code = request.args.get('code', '')
+    if not code:
+        flash('No se recibió código de autorización', 'error')
+        logger.error("No se recibió código de autorización en callback")
+        return redirect(url_for('dashboard'))
+    
+    # Completar el flujo de OAuth con el código recibido
+    credentials = complete_oauth_flow(code)
+    if not credentials:
+        flash('Error al procesar código de autorización', 'error')
+        logger.error("Error al completar flujo OAuth")
+        return redirect(url_for('dashboard'))
+    
+    # Guardar las credenciales en la sesión del usuario
+    session['credentials'] = credentials_to_dict(credentials)
+    session.modified = True
+    
+    flash('Autenticación con Google completada correctamente', 'success')
+    logger.info("Autenticación con Google completada exitosamente")
+    
+    # Redirigir a la URL guardada o al dashboard
+    next_url = session.pop('next_url', url_for('dashboard'))
+    return redirect(next_url)
+
+@app.route('/logout')
+def logout():
+    """Cerrar sesión y eliminar credenciales"""
+    if 'credentials' in session:
+        session.pop('credentials')
+    flash('Sesión cerrada. Se ha desconectado de Google Calendar', 'success')
+    return redirect(url_for('dashboard'))
+
 @app.route('/calculate', methods=['POST'])
 def calculate():
     try:
@@ -76,11 +166,29 @@ def calculate():
             logger.warning(f"Intento de búsqueda con fechas inválidas: start={start_date}, end={end_date}")
             return redirect(url_for('dashboard'))
         
-        service = authenticate_google_calendar()
+        # Guardar datos del formulario en la sesión para restaurarlos después de autenticación
+        form_data = {
+            'start_date': request.form['start_date'],
+            'end_date': request.form['end_date'],
+            'config': request.form.get('config', '{}')
+        }
+        session['form_data'] = form_data
+        
+        # Obtener credenciales de la sesión
+        credentials = session.get('credentials')
+        
+        # Autenticar con Google Calendar
+        service, updated_credentials = authenticate_google_calendar(credentials)
+        
+        # Si hay credenciales actualizadas, guardarlas en la sesión
+        if updated_credentials:
+            session['credentials'] = updated_credentials
+            session.modified = True
+        
         if not service:
-            flash('Error al autenticar con Google Calendar', 'error')
-            logger.error("Falló la autenticación con Google Calendar")
-            return redirect(url_for('dashboard'))
+            # Necesita autenticación
+            logger.info("Redirigiendo a autenticación con Google Calendar")
+            return redirect(url_for('auth', next=url_for('calculate_with_session')))
         
         timezone = get_calendar_timezone(service)
         events = get_events(service, start_date, end_date, timezone)
@@ -175,6 +283,30 @@ def calculate():
         flash(error_msg, 'error')
         logger.exception(f"Error en calculate: {str(e)}")
         return redirect(url_for('dashboard'))
+
+@app.route('/calculate_with_session', methods=['GET'])
+def calculate_with_session():
+    """Procesar cálculo con datos guardados en sesión después de autenticación"""
+    if 'form_data' not in session:
+        flash('No hay datos de búsqueda en la sesión', 'error')
+        return redirect(url_for('dashboard'))
+    
+    form_data = session.pop('form_data')
+    # Re-crear una solicitud POST con los datos almacenados
+    class MockPost:
+        def __init__(self, data):
+            self.form = data
+    
+    # Guardar la request original
+    original_request = request
+    try:
+        # Mockear la request con nuestro objeto
+        request.__class__.form = form_data
+        # Llamar a la función de cálculo
+        return calculate()
+    finally:
+        # Restaurar la request original
+        request.__class__ = original_request.__class__
 
 # Para producción, no ejecutar app.run() directamente
 # Usar gunicorn o similar

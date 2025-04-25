@@ -1,27 +1,22 @@
-# Calendar Work Time Tracker (Web App)
+# Calendar Work Time Tracker
 
-## Descripción General
+Una aplicación web para analizar y visualizar el tiempo dedicado a diferentes tipos de trabajo en tu calendario de Google.
 
-Calendar Work Time Tracker es una aplicación web construida con Flask que te permite analizar y visualizar cómo distribuyes tu tiempo laboral basándose en los eventos de tu Google Calendar. Esta aplicación procesa los eventos según etiquetas de color o tipos de eventos (como Fuera de oficina, Tiempo de concentración) y genera reportes visuales que muestran las horas dedicadas a cada categoría o servicio.
+## Características
 
-## Características Principales
-
-- **Interfaz Web Intuitiva**: Accede a todas las funcionalidades a través de una interfaz web moderna y fácil de usar.
-- **Autenticación con Google Calendar**: Conexión segura con tu cuenta de Google para acceder a los eventos de tu calendario.
-- **Personalización de Configuración**: Define tus propias categorías y asócialas a los colores de tu calendario.
-- **Reportes Detallados**: Visualiza un desglose semanal y total del tiempo dedicado a cada categoría.
-- **Filtros por Fechas**: Selecciona períodos específicos para analizar.
-- **Personalización de Horario Laboral**: Define tus propias horas de trabajo.
-- **Persistencia de Configuración**: Guarda tus preferencias en el navegador.
-- **Autenticación Flexible**: Soporta autenticación con navegador para entornos de desarrollo y sin navegador para servidores de producción
+- **Análisis por Etiquetas de Color**: Categoriza automáticamente tus eventos según los colores que uses en Google Calendar
+- **Vista por Semanas**: Visualiza tiempo dedicado a cada categoría de trabajo por semana
+- **Resumen del Período**: Obtén totales y porcentajes para un intervalo de fechas completo
+- **Configuración Personalizada**: Define tus propias categorías y horarios laborales
+- **Autenticación Web**: Proceso intuitivo de autenticación con Google Calendar a través del navegador
 
 ## Prerrequisitos
 
-- **Python 3.8 o superior**: Asegúrate de tener Python instalado en tu sistema.
-- **Cuenta de Google**: Necesitas una cuenta de Google para acceder a Google Calendar.
-- **Acceso a Google Cloud Console**: Necesitarás crear un proyecto y habilitar la API de Google Calendar.
+- Python 3.8+ 
+- Cuenta de Google y acceso a Google Calendar
+- Credenciales de API de Google (ver instrucciones de instalación)
 
-## Instalación y Configuración
+## Instalación
 
 ### 1. Clonar el Repositorio
 
@@ -30,17 +25,11 @@ git clone https://github.com/tu-usuario/calendar-work-time-tracker.git
 cd calendar-work-time-tracker
 ```
 
-### 2. Configurar Entorno Virtual
+### 2. Crear y Activar Entorno Virtual
 
 ```bash
-# Crear entorno virtual
 python -m venv venv
-
-# Activar entorno virtual
-# En Linux/macOS:
-source venv/bin/activate
-# En Windows:
-venv\Scripts\activate
+source venv/bin/activate  # En Windows: venv\Scripts\activate
 ```
 
 ### 3. Instalar Dependencias
@@ -58,8 +47,8 @@ pip install -r requirements.txt
 3. Habilita la API de Google Calendar para tu proyecto
 4. Crea Credenciales OAuth:
    - Ve a "APIs y servicios" -> "Credenciales"
-   - Crea un ID de cliente OAuth para aplicación web
-   - Configura las URI de redireccionamiento (generalmente `http://localhost:5000` para desarrollo)
+   - Crea un ID de cliente OAuth para **Aplicación Web** (importante)
+   - Configura las URI de redireccionamiento: `http://localhost:5000/oauth2callback`
    - Descarga el archivo JSON de credenciales y renómbralo a `credentials.json`
    - Coloca este archivo en la raíz del proyecto
 
@@ -72,14 +61,14 @@ Para entornos de producción, es más seguro y flexible usar variables de entorn
 3. Habilita la API de Google Calendar para tu proyecto
 4. Crea Credenciales OAuth para Web:
    - Ve a "APIs y servicios" -> "Credenciales"
-   - Crea un ID de cliente OAuth para aplicación web
-   - Configura las URI de redireccionamiento con la URL de tu aplicación en producción
+   - Crea un ID de cliente OAuth para **Aplicación Web** (importante)
+   - Configura las URI de redireccionamiento: `https://tu-dominio.com/oauth2callback`
 5. Anota el Client ID y Client Secret
 6. Configura las siguientes variables de entorno en tu servidor:
    ```
    GOOGLE_CLIENT_ID=tu_client_id
    GOOGLE_CLIENT_SECRET=tu_client_secret
-   GOOGLE_REDIRECT_URI=https://tu-dominio.com
+   GOOGLE_REDIRECT_URI=https://tu-dominio.com/oauth2callback
    ```
 
 La aplicación intentará primero usar las variables de entorno, y si no están disponibles, buscará el archivo `credentials.json`.
@@ -93,10 +82,6 @@ SECRET_KEY=tu_clave_secreta_para_flask
 FLASK_ENV=production  # Cambiar a 'development' para desarrollo local
 ```
 
-El valor de `FLASK_ENV` determina el método de autenticación:
-- `production`: Utiliza autenticación sin navegador (ideal para servidores)
-- `development`: Utiliza autenticación con navegador (ideal para desarrollo local)
-
 ### 6. Ejecutar la Aplicación
 
 ```bash
@@ -105,22 +90,15 @@ python app.py
 
 La aplicación estará disponible en `http://localhost:5000`
 
-### 7. Autenticación Inicial
+### 7. Autenticación con Google Calendar
 
-#### 7.1 En modo desarrollo (FLASK_ENV=development)
+La aplicación utiliza un flujo de autenticación web unificado que funciona tanto en entornos de desarrollo como de producción:
 
-1. La aplicación abrirá automáticamente un navegador local para la autenticación
-2. Completa el proceso de autorización de Google
-3. La aplicación guardará el token para futuros usos
-
-#### 7.2 En modo producción (FLASK_ENV=production)
-
-1. La aplicación mostrará una URL en la consola
-2. Copia esta URL y ábrela en un navegador en tu computadora local
-3. Completa el proceso de autorización de Google
-4. Google te proporcionará un código que debes copiar
-5. Pega este código en la consola donde se está ejecutando la aplicación
-6. La aplicación guardará el token para futuros usos
+1. Al acceder por primera vez o cuando se necesite autorización, verás una página de autenticación
+2. Haz clic en el botón para iniciar el proceso de autorización con Google
+3. Se abrirá una ventana de Google donde deberás seleccionar tu cuenta y autorizar el acceso
+4. Después de autorizar, serás redirigido automáticamente de vuelta a la aplicación
+5. La aplicación guardará el token para futuros accesos y no necesitarás repetir este proceso hasta que el token expire
 
 ## Cómo Usar la Aplicación
 
@@ -157,7 +135,7 @@ La aplicación estará disponible en `http://localhost:5000`
 - **Errores de Autenticación**: Si experimentas problemas con la autenticación, elimina el archivo `token.pickle` y reinicia la aplicación.
 - **Resultados Inesperados**: Verifica que la configuración de colores y categorías corresponda con la forma en que organizas tu calendario.
 - **Problemas de Instalación**: Asegúrate de que todas las dependencias estén correctamente instaladas.
-- **No puedo ver la URL de autenticación**: Si estás en modo producción, revisa los logs para encontrar la URL de autenticación.
+- **Problemas de Redirección**: Asegúrate de que la URL de redirección en Google Cloud Console coincida exactamente con la configurada en tu aplicación.
 
 ## Documentación Adicional
 

@@ -3,6 +3,8 @@ import datetime
 import os.path
 import pickle
 from collections import defaultdict
+import base64
+import json
 
 # Third-party imports
 import pytz
@@ -25,108 +27,131 @@ from googleapiclient.discovery import build
 # Google Calendar API Scopes
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
+# Variable global para almacenar el flujo de autenticación en curso
+_current_flow = None
+
 # --- FUNCIONES PRINCIPALES ---
 
-def authenticate_google_calendar():
-    """Autenticar con Google Calendar API y devolver servicio"""
-    creds = None
-    token_file = 'token.pickle'
-    credentials_file = 'credentials.json'
-
-    # Comprobar si existen variables de entorno para las credenciales
-    client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
-    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
+def get_oauth_flow(force_new=False):
+    """Obtener o crear el flujo OAuth para autenticación web"""
+    global _current_flow
     
-    # Determinar si estamos en entorno de producción o desarrollo
-    is_production = os.environ.get('FLASK_ENV', 'production') == 'production'
-    
-    # Cargar credenciales existentes
-    if os.path.exists(token_file):
-        try: 
-            with open(token_file, 'rb') as token:
-                creds = pickle.load(token)
-        except Exception as e: 
-            print(f"Error cargando token: {e}")
-            creds = None
-
-    # Validar credenciales o renovarlas si es necesario
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try: 
-                creds.refresh(Request())
-            except Exception as e:
-                print(f"Error al refrescar token: {e}")
-                creds = None
-                if os.path.exists(token_file):
-                    os.remove(token_file)
+    if _current_flow is None or force_new:
+        # Comprobar si existen variables de entorno para las credenciales
+        client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
         
-        # Si aún no hay credenciales válidas, iniciar flujo de autenticación
-        if not creds:
-            try:
-                # Configurar el cliente OAuth
-                if client_id and client_secret:
-                    # En producción usar la URI para autenticación sin navegador
-                    if is_production:
-                        client_config = {
-                            "installed": {
-                                "client_id": client_id,
-                                "client_secret": client_secret,
-                                "redirect_uris": ["urn:ietf:wg:oauth:2.0:oob"],
-                                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                                "token_uri": "https://oauth2.googleapis.com/token"
-                            }
-                        }
-                    # En desarrollo usar la URI de redirección configurada
-                    else:
-                        client_config = {
-                            "installed": {
-                                "client_id": client_id,
-                                "client_secret": client_secret,
-                                "redirect_uris": [redirect_uri or "http://localhost"],
-                                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                                "token_uri": "https://oauth2.googleapis.com/token"
-                            }
-                        }
-                    flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-                # De lo contrario, intentar usar el archivo de credenciales
-                elif os.path.exists(credentials_file):
-                    flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
-                else:
-                    print(f"Error: No se encontró '{credentials_file}' ni variables de entorno GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET.")
-                    return None
-                
-                # Ejecutar el flujo de autenticación apropiado según el entorno
-                if is_production:
-                    print("Entorno de producción detectado. Utilizando autenticación sin navegador.")
-                    print("Por favor, vaya a la siguiente URL en su navegador:")
-                    auth_url, _ = flow.authorization_url(prompt='consent')
-                    print(auth_url)
-                    print("\nIntroduzca el código de autorización:")
-                    code = input().strip()
-                    flow.fetch_token(code=code)
-                    creds = flow.credentials
-                else:
-                    print("Entorno de desarrollo detectado. Iniciando navegador para autenticación.")
-                    creds = flow.run_local_server(port=0)
-                
-                # Verificar que creds sea una instancia de Credentials
-                if not isinstance(creds, Credentials):
-                    creds = Credentials.from_authorized_user_info(info=creds.to_json())
-                
-                # Guardar el token para la próxima vez
-                with open(token_file, 'wb') as token:
-                    pickle.dump(creds, token)
-            except Exception as e: 
-                print(f"Error en autenticación: {e}")
-                return None
+        if client_id and client_secret:
+            client_config = {
+                "web": {
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uris": [redirect_uri or "http://localhost:5000/oauth2callback"],
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token"
+                }
+            }
+            _current_flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+            # Configurar la URL de redirección correcta
+            _current_flow.redirect_uri = redirect_uri or "http://localhost:5000/oauth2callback"
+        elif os.path.exists('credentials.json'):
+            _current_flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+        else:
+            return None
+    
+    return _current_flow
 
-    # Construir y devolver el servicio
-    try:
-        return build('calendar', 'v3', credentials=creds)
-    except Exception as e:
-        print(f"Error al construir servicio: {e}")
+def get_authorization_url():
+    """Generar URL para autorización de OAuth"""
+    flow = get_oauth_flow()
+    if not flow:
         return None
+        
+    # Configurar la solicitud de autorización para obtener refresh token
+    auth_url, _ = flow.authorization_url(
+        access_type='offline',
+        prompt='consent'
+    )
+    
+    return auth_url
+
+def complete_oauth_flow(code):
+    """Completar el flujo OAuth con el código de autorización y devolver las credenciales"""
+    flow = get_oauth_flow()
+    if not flow:
+        return None
+    
+    try:
+        flow.fetch_token(code=code)
+        creds = flow.credentials
+        
+        # Ya no guardamos en archivo, devolvemos las credenciales para guardar en sesión
+        return creds
+    except Exception as e:
+        print(f"Error al completar flujo OAuth: {e}")
+        return None
+
+def credentials_to_dict(credentials):
+    """Convertir objeto Credentials a diccionario para almacenar en sesión"""
+    return {
+        'token': credentials.token,
+        'refresh_token': credentials.refresh_token,
+        'token_uri': credentials.token_uri,
+        'client_id': credentials.client_id,
+        'client_secret': credentials.client_secret,
+        'scopes': credentials.scopes
+    }
+
+def dict_to_credentials(credentials_dict):
+    """Convertir diccionario de sesión a objeto Credentials"""
+    if not credentials_dict:
+        return None
+    
+    try:
+        return Credentials(
+            token=credentials_dict['token'],
+            refresh_token=credentials_dict['refresh_token'],
+            token_uri=credentials_dict['token_uri'],
+            client_id=credentials_dict['client_id'],
+            client_secret=credentials_dict['client_secret'],
+            scopes=credentials_dict['scopes']
+        )
+    except Exception as e:
+        print(f"Error al convertir diccionario a credenciales: {e}")
+        return None
+
+def authenticate_google_calendar(credentials_dict=None):
+    """
+    Autenticar con Google Calendar API y devolver servicio
+    
+    Args:
+        credentials_dict: Diccionario con las credenciales almacenadas en sesión
+        
+    Returns:
+        Servicio de Google Calendar o None si no hay credenciales válidas
+    """
+    creds = dict_to_credentials(credentials_dict)
+    
+    # Si hay credenciales y están expiradas, intentar renovarlas
+    if creds and creds.expired and creds.refresh_token:
+        try: 
+            creds.refresh(Request())
+            # Devolver las credenciales actualizadas y el servicio
+            return build('calendar', 'v3', credentials=creds), credentials_to_dict(creds)
+        except Exception as e:
+            print(f"Error al refrescar token: {e}")
+            creds = None
+    
+    # Construir y devolver el servicio si hay credenciales válidas
+    if creds and creds.valid:
+        try:
+            return build('calendar', 'v3', credentials=creds), credentials_to_dict(creds)
+        except Exception as e:
+            print(f"Error al construir servicio: {e}")
+    
+    # Si no hay credenciales válidas, se necesita autorización
+    return None, None
 
 def get_calendar_timezone(service):
     """Obtener zona horaria del calendario del usuario"""

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Política de Privacidad - Calendar Work Time Tracker{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow rounded-lg p-6 mb-6 mt-8">
+    <h1 class="text-lg font-semibold text-gray-900 mb-4">Política de Privacidad y Cookies</h1>
+    
+    <div class="space-y-6 text-sm text-gray-700">
+        <section>
+            <h2 class="text-base font-medium text-gray-800 mb-2">1. Información sobre Cookies</h2>
+            <p>Este sitio web utiliza cookies y tecnologías similares para mejorar la experiencia de navegación del usuario. Las cookies son pequeños archivos de texto que se almacenan en su dispositivo cuando visita nuestra página web.</p>
+        </section>
+        
+        <section>
+            <h2 class="text-base font-medium text-gray-800 mb-2">2. Tipos de Cookies que utilizamos</h2>
+            <ul class="list-disc pl-5 space-y-1">
+                <li><span class="font-medium">Cookies de sesión:</span> Estas son temporales y se borran cuando cierra su navegador. Las utilizamos para mantener su sesión activa mientras utiliza nuestra aplicación.</li>
+                <li><span class="font-medium">Cookies persistentes:</span> Estas permanecen en su dispositivo después de cerrar el navegador. Las utilizamos para recordar sus preferencias y configuraciones.</li>
+                <li><span class="font-medium">Cookies de autenticación:</span> Almacenan información sobre su sesión con Google Calendar, permitiéndonos acceder a los datos de su calendario con su permiso.</li>
+            </ul>
+        </section>
+        
+        <section>
+            <h2 class="text-base font-medium text-gray-800 mb-2">3. Finalidad del uso de Cookies</h2>
+            <p>Utilizamos cookies para los siguientes propósitos:</p>
+            <ul class="list-disc pl-5 space-y-1 mt-2">
+                <li>Mantener su sesión activa mientras utiliza nuestra aplicación</li>
+                <li>Recordar sus preferencias de configuración</li>
+                <li>Almacenar temporalmente sus credenciales de acceso a Google Calendar</li>
+                <li>Mejorar la funcionalidad y rendimiento de nuestra aplicación</li>
+            </ul>
+        </section>
+        
+        <section>
+            <h2 class="text-base font-medium text-gray-800 mb-2">4. Datos de Google Calendar</h2>
+            <p>Nuestra aplicación solicita acceso a sus datos de Google Calendar con el único propósito de calcular el tiempo dedicado a distintas actividades. Estos datos:</p>
+            <ul class="list-disc pl-5 space-y-1 mt-2">
+                <li>No se almacenan permanentemente en nuestros servidores</li>
+                <li>Solo se utilizan para los cálculos solicitados durante su sesión</li>
+                <li>No se comparten con terceros bajo ninguna circunstancia</li>
+            </ul>
+        </section>
+        
+        <section>
+            <h2 class="text-base font-medium text-gray-800 mb-2">5. Control de Cookies</h2>
+            <p>Puede configurar su navegador para rechazar todas las cookies o para que le avise cuando se envía una cookie. Sin embargo, si rechaza las cookies, es posible que algunas funcionalidades de nuestra aplicación no funcionen correctamente.</p>
+            <p class="mt-2">Para obtener más información sobre cómo gestionar las cookies, visite la configuración de su navegador o consulte sitios como <a href="https://www.aboutcookies.org/" target="_blank" class="text-indigo-600 hover:text-indigo-800">www.aboutcookies.org</a>.</p>
+        </section>
+        
+        <section>
+            <h2 class="text-base font-medium text-gray-800 mb-2">6. Cambios en la Política de Privacidad</h2>
+            <p>Nos reservamos el derecho de modificar esta política de privacidad en cualquier momento. Cualquier cambio será publicado en esta página.</p>
+            <p class="mt-2 text-gray-500 text-xs">Última actualización: {{ now.strftime('%d/%m/%Y') }}</p>
+        </section>
+    </div>
+</div>
+{% endblock %} 

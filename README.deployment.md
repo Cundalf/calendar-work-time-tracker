@@ -59,16 +59,18 @@ Es **crítico** cambiar la `SECRET_KEY` por una cadena aleatoria y segura:
 python -c "import secrets; print(secrets.token_hex(24))"
 ```
 
-Asegúrate de mantener `FLASK_ENV=production` para habilitar la autenticación sin navegador.
-
 ## 5. Configurar Credenciales de Google Calendar
 
 Tienes dos opciones para configurar las credenciales de Google Calendar:
 
-### Opción 1: Usando el archivo credentials.json (método tradicional)
+### Opción 1: Usando el archivo credentials.json
 
-1. Copia tu archivo `credentials.json` en el directorio raíz
-2. La primera vez que se ejecute la aplicación, deberás seguir el flujo de autorización
+1. Crea un proyecto en la [Google Cloud Console](https://console.cloud.google.com/)
+2. Habilita la API de Google Calendar
+3. Crea credenciales OAuth para **Aplicación Web**
+4. Configura la URI de redirección como `https://tu-dominio.com/oauth2callback`
+5. Descarga el archivo JSON de credenciales y renómbralo a `credentials.json`
+6. Coloca este archivo en el directorio raíz del proyecto
 
 ### Opción 2: Usando variables de entorno (recomendado para producción)
 
@@ -76,24 +78,9 @@ Tienes dos opciones para configurar las credenciales de Google Calendar:
 ```
 GOOGLE_CLIENT_ID=tu_client_id
 GOOGLE_CLIENT_SECRET=tu_client_secret
-GOOGLE_REDIRECT_URI=https://tu-dominio.com
+GOOGLE_REDIRECT_URI=https://tu-dominio.com/oauth2callback
 ```
-2. Asegúrate de que las URIs de redirección en la Consola de Google Cloud apunten a tu dominio
-3. No necesitas el archivo `credentials.json` si usas este método
-
-### Completar la autenticación en modo producción
-
-En un servidor de producción, la aplicación usa autenticación sin navegador:
-
-1. Cuando la aplicación solicite autenticación, mostrará una URL en los logs
-2. Copia esta URL y ábrela en un navegador en tu computadora local
-3. Completa el proceso de autenticación 
-4. Copia el código de autorización que Google te proporciona
-5. Introduce ese código en la consola donde se está ejecutando la aplicación
-
-Una vez completado este proceso, se generará un archivo `token.pickle` que se usará para futuras autenticaciones sin necesidad de repetir estos pasos.
-
-Nota: Si ambos métodos están configurados, la aplicación dará prioridad a las variables de entorno.
+2. Asegúrate de que las URIs de redirección en la Consola de Google Cloud sean exactamente las mismas que las configuradas en tu `.env`
 
 ## 6. Configurar Nginx
 
@@ -172,9 +159,9 @@ Estos archivos contienen la configuración y la autenticación con Google Calend
 La aplicación distingue entre ambientes de desarrollo y producción mediante la variable `FLASK_ENV`.
 
 - **Producción**: `FLASK_ENV=production` (valor por defecto)
-  - Utiliza autenticación sin navegador, adecuada para servidores sin interfaz gráfica
 - **Desarrollo**: `FLASK_ENV=development` 
-  - Utiliza autenticación con navegador web para mayor comodidad en desarrollo local
+
+El flujo de autenticación web funciona de la misma forma en ambos ambientes, presentando una página web para iniciar la autorización con Google.
 
 ## Solución de Problemas
 
@@ -193,11 +180,11 @@ rm /var/www/calendar-app/token.pickle
 # Luego ejecutar la aplicación y completar la autenticación
 ```
 
-Si no ves la URL de autenticación en los logs en modo producción:
-```bash
-# Ver los últimos logs para encontrar la URL de autenticación
-sudo journalctl -u calendar-app -n 50
-```
+### Errores de redirección OAuth
+Si recibes errores relacionados con URI de redirección:
+1. Verifica que las URIs configuradas en Google Cloud Console coincidan exactamente con la URL de tu aplicación
+2. Asegúrate de que `GOOGLE_REDIRECT_URI` apunte a `https://tu-dominio.com/oauth2callback`
+3. Verifica que Nginx esté configurado correctamente para pasar las solicitudes a tu aplicación Flask
 
 ### La aplicación no inicia
 ```bash

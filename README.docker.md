@@ -29,7 +29,12 @@ Tienes dos opciones para configurar las credenciales:
 
 #### Opción 1: Usando el archivo credentials.json
 
-El archivo `credentials.json` debe estar en el directorio raíz del proyecto. Este archivo contiene las credenciales de Google para acceder a Google Calendar.
+1. Crea un proyecto en la [Google Cloud Console](https://console.cloud.google.com/)
+2. Habilita la API de Google Calendar
+3. Crea credenciales OAuth para **Aplicación Web**
+4. Configura la URI de redirección como `https://tu-dominio.com/oauth2callback`
+5. Descarga el archivo JSON de credenciales y renómbralo a `credentials.json`
+6. Coloca este archivo en el directorio raíz del proyecto
 
 #### Opción 2: Usando variables de entorno (recomendado para producción)
 
@@ -38,8 +43,10 @@ Añade las siguientes variables al archivo `.env`:
 ```
 GOOGLE_CLIENT_ID=tu_client_id
 GOOGLE_CLIENT_SECRET=tu_client_secret
-GOOGLE_REDIRECT_URI=https://tu-dominio.com
+GOOGLE_REDIRECT_URI=https://tu-dominio.com/oauth2callback
 ```
+
+Asegúrate de que la URI de redirección coincida exactamente con la configurada en Google Cloud Console.
 
 ### 3. Construye y ejecuta el contenedor
 
@@ -67,26 +74,14 @@ La aplicación debería estar disponible en `http://tu-servidor:5000`
 
 ### 5. Autenticación inicial
 
-Cuando ejecutes la aplicación por primera vez en modo producción, necesitarás completar el flujo de autenticación de Google sin navegador:
+La primera vez que accedas a la aplicación desde el navegador, se te mostrará una pantalla de autenticación:
 
-1. Revisa los logs del contenedor para encontrar la URL de autenticación:
-   ```bash
-   docker logs calendar-work-time-tracker | grep "vaya a la siguiente URL"
-   ```
+1. Haz clic en el botón "Autorizar acceso a Google Calendar"
+2. Se abrirá la página de Google para que selecciones tu cuenta y autorices el acceso
+3. Una vez completada la autorización, Google te redirigirá de vuelta a la aplicación
+4. La aplicación guardará el token de autenticación automáticamente
 
-2. Copia esa URL y ábrela en un navegador en tu computadora local (no en el servidor)
-
-3. Completa el proceso de autenticación con Google
-
-4. Google te proporcionará un código de autorización
-
-5. Introduce ese código en la consola del contenedor:
-   ```bash
-   docker attach calendar-work-time-tracker
-   ```
-   (Pega el código y presiona Enter. Puedes desconectarte después con Ctrl+P, Ctrl+Q)
-
-Una vez completado este proceso, se generará un archivo `token.pickle` que se guardará en el volumen montado y se usará para futuras autenticaciones sin necesidad de repetir estos pasos.
+El token se almacenará en el volumen montado y no necesitarás repetir este proceso hasta que el token expire (generalmente después de varias semanas o meses).
 
 ### 6. Actualización de la aplicación
 
@@ -128,21 +123,18 @@ Si tienes problemas con la autenticación:
 
 1. Verifica que estás usando las credenciales correctas (variables de entorno o archivo)
 2. Asegúrate de que las URIs de redirección en Google Cloud Console son correctas
-3. Prueba eliminando el token.pickle y volviendo a autenticarte
+3. Verifica que la aplicación es accesible desde el exterior en la URL configurada
+4. Prueba eliminando el token.pickle y volviendo a autenticarte
 
 ```bash
 rm token.pickle
 docker-compose restart
 ```
 
-#### No puedo ver la URL de autenticación
+#### Errores de redirección
 
-Si no puedes ver la URL de autenticación en los logs:
+Si recibes errores relacionados con URI de redirección:
 
-```bash
-# Ver los logs completos
-docker logs calendar-work-time-tracker
-
-# O filtrar específicamente por mensajes de autenticación
-docker logs calendar-work-time-tracker | grep -A 10 "Entorno de producción detectado"
-``` 
+1. Verifica que `GOOGLE_REDIRECT_URI` coincida exactamente con lo configurado en Google Cloud Console
+2. Si estás usando un proxy inverso como Nginx, asegúrate de que pasa correctamente las solicitudes a tu contenedor
+3. Verifica que estás usando HTTPS si tu ruta de redirección usa HTTPS
