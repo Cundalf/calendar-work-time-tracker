@@ -173,78 +173,33 @@ function submitForm() {
         return;
     }
     
-    // Obtener configuración del localStorage siempre fresca
+    // FORZAR LIMPIEZA COMPLETA Y REENVÍO DIRECTO
     try {
-        // Limpiar formularios previos para evitar errores
-        const oldForms = document.querySelectorAll('form[style="display: none;"]');
-        oldForms.forEach(form => form.remove());
-        
-        // Intentar obtener de localStorage primero
-        let freshConfig = localStorage.getItem('calendarConfig');
-        
-        console.log('Configuración inicial encontrada:', freshConfig);
-        
-        // Si no hay en localStorage, intentar recuperar de cookie como respaldo
-        if (!freshConfig) {
-            const cookieConfig = getCookie('calendarConfig');
-            if (cookieConfig) {
-                freshConfig = cookieConfig;
-                console.log('Recuperada configuración desde cookie');
-                // Restaurar en localStorage
-                localStorage.setItem('calendarConfig', freshConfig);
+        // Eliminar TODOS los formularios ocultos previos
+        document.querySelectorAll('form').forEach(form => {
+            if (form.id !== 'calculateForm') {
+                form.remove();
             }
-        }
+        });
         
-        if (!freshConfig) {
+        // Obtener configuración desde localStorage directamente sin manipulación
+        let config = localStorage.getItem('calendarConfig');
+        console.log('Configuración directa de localStorage:', config);
+        
+        // Comprobar si la configuración es válida
+        if (!config) {
             showToast('errorToast', 'No se ha encontrado configuración. Por favor, configura tus preferencias primero.');
             return;
         }
         
-        // Limpiar la caché del navegador para ese ítem
-        localStorage.removeItem('calendarConfig');
-        // Y guardarlo otra vez para asegurar que esté fresco
-        localStorage.setItem('calendarConfig', freshConfig);
-        
-        // También guardar en cookie como respaldo por 30 días
-        setCookie('calendarConfig', freshConfig, 30);
-        
-        console.log('Config en localStorage después de refresh:', localStorage.getItem('calendarConfig'));
-        console.log('Config en cookie después de refresh:', getCookie('calendarConfig'));
-        
-        // Verificar que la configuración es JSON válido
-        const configObj = JSON.parse(freshConfig);
-        
-        // Verificar campos obligatorios
-        const requiredFields = ['work_start_time', 'work_end_time', 'default_service'];
-        const missingFields = [];
-        
-        for (const field of requiredFields) {
-            if (!configObj[field]) {
-                missingFields.push(field);
-            }
-        }
-        
-        if (missingFields.length > 0) {
-            showToast('errorToast', `Configuración incompleta. Faltan: ${missingFields.join(', ')}. Por favor, configura tus preferencias correctamente.`);
+        // Verificar que sea JSON válido
+        try {
+            JSON.parse(config);
+        } catch (e) {
+            showToast('errorToast', 'Configuración inválida. Por favor, reconfigura tus preferencias.');
+            console.error('Error en JSON:', e);
             return;
         }
-        
-        // Verificar si hay valores inválidos/vacíos en los campos obligatorios
-        for (const field of requiredFields) {
-            const value = configObj[field].toString().trim();
-            if (value === '') {
-                showToast('errorToast', `El campo ${field} no puede estar vacío. Por favor, revisa tu configuración.`);
-                return;
-            }
-        }
-        
-        console.log('Configuración validada correctamente:', configObj);
-        console.log('Servicios configurados:', JSON.stringify({
-            default: configObj.default_service,
-            ooo: configObj.ooo_service,
-            focus: configObj.focus_time_service,
-            unlabeled: configObj.unlabeled_service
-        }));
         
         // Guardar fechas en localStorage
         const datesToSave = {
@@ -253,39 +208,42 @@ function submitForm() {
         };
         localStorage.setItem('calendarDates', JSON.stringify(datesToSave));
         
-        // Crear un form oculto para enviar la solicitud
+        // Crear un formulario desde cero
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '{{ url_for("calculate") }}';
         form.style.display = 'none';
+        form.classList.add('force-clean-form');
         
-        // Añadir los campos
-        const addField = (name, value) => {
+        // Añadir campos con valores exactos
+        function addField(name, value) {
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = name;
             input.value = value;
             form.appendChild(input);
-        };
+        }
         
+        // Añadir los datos exactos
         addField('start_date', startDate);
         addField('end_date', endDate);
-        addField('config', freshConfig);
+        addField('config', config);
+        addField('timestamp', Date.now());
+        addField('client_id', Math.random().toString(36).substring(2, 15));
         
-        // Añadir timestamp para prevenir caché y versión para debug
-        const timestamp = new Date().getTime();
-        addField('timestamp', timestamp);
-        addField('version', 'fix-2025-04-26');
-        
-        // Añadir el form al documento y enviarlo
+        // Añadir al DOM y enviar
         document.body.appendChild(form);
-        console.log('Enviando formulario con config:', freshConfig);
-        console.log('Con timestamp:', timestamp);
-        form.submit();
+        
+        console.log('Enviando formulario nuevo con config:', config);
+        
+        // IMPORTANTE: Esperar un momento para asegurar que todo esté listo
+        setTimeout(() => {
+            form.submit();
+        }, 10);
+        
     } catch (error) {
-        showToast('errorToast', `Error al procesar la configuración: ${error.message}. Por favor, reconfigura tus preferencias.`);
+        showToast('errorToast', `Error al enviar formulario: ${error.message}`);
         console.error('Error completo:', error);
-        return;
     }
 }
 </script>

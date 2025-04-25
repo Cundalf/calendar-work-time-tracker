@@ -230,15 +230,22 @@ def logout():
 @app.route('/calculate', methods=['POST'])
 def calculate():
     try:
-        # Log completo de todos los datos recibidos en la solicitud
+        # HARD RESET - Forzar limpieza completa de sesión
+        if 'form_data' in session:
+            del session['form_data']
+            logger.info("FORZADO: Limpieza de form_data en sesión")
+            
+        # Volcar todo el contenido de la solicitud para depuración
+        logger.info(f"RAW REQUEST DATA: {request.get_data(as_text=True)}")
+        logger.info(f"FORM: {request.form}")
+        logger.info(f"COOKIES: {request.cookies}")
+        logger.info(f"SESSION: {dict(session)}")
+        
+        # Log de datos recibidos
         logger.info(f"Solicitud POST recibida: {request.form}")
         logger.info(f"Headers recibidos: {dict(request.headers)}")
         
-        # IMPORTANTE! Verificar si esta solicitud viene de un formulario fresco o de calculate_with_session
-        is_fresh_request = 'form_data' not in session
-        logger.info(f"¿Es una solicitud fresca? {is_fresh_request}")
-        
-        # Verificar si hay un timestamp para prevenir caché
+        # Verificar timestamp
         timestamp = request.form.get('timestamp')
         if timestamp:
             logger.info(f"Timestamp recibido: {timestamp} - {datetime.fromtimestamp(int(timestamp)/1000).strftime('%Y-%m-%d %H:%M:%S')}")
@@ -250,17 +257,13 @@ def calculate():
             flash('La fecha de fin no puede ser anterior a la fecha de inicio', 'error')
             logger.warning(f"Intento de búsqueda con fechas inválidas: start={start_date}, end={end_date}")
             return redirect(url_for('dashboard'))
+            
+        # IMPORTANTE: Extraer la configuración directamente del request
+        # No guardar en sesión para evitar contaminación
+        config_data = request.form.get('config', '{}')
+        logger.info(f"CONFIG RECIBIDA DIRECTAMENTE: {config_data}")
         
-        # Guardar datos del formulario en la sesión para restaurarlos después de autenticación
-        # Pero SOLO los datos mínimos necesarios, no guardar configuración
-        form_data = {
-            'start_date': request.form['start_date'],
-            'end_date': request.form['end_date'],
-            'config': request.form.get('config', '{}'),
-            'timestamp': timestamp  # Añadir timestamp para prevenir caché
-        }
-        session['form_data'] = form_data
-        logger.debug(f"Datos guardados en sesión: {form_data}")
+        # NO GUARDAR DATOS DEL FORMULARIO EN SESIÓN - SOLO LAS CREDENCIALES
         
         # Obtener credenciales de la sesión
         credentials = session.get('credentials')
@@ -274,9 +277,10 @@ def calculate():
             session.modified = True
         
         if not service:
-            # Necesita autenticación
-            logger.info("Redirigiendo a autenticación con Google Calendar")
-            return redirect(url_for('auth', next=url_for('calculate_with_session')))
+            # En lugar de usar los datos del form, redirigir y empezar de nuevo
+            logger.info("Redirigiendo a autenticación con Google Calendar - NO SE GUARDA CONFIG")
+            flash('Se requiere autenticación. Por favor inténtelo nuevamente después de iniciar sesión.', 'info')
+            return redirect(url_for('auth', next=url_for('dashboard')))
         
         timezone = get_calendar_timezone(service)
         events = get_events(service, start_date, end_date, timezone)
@@ -285,31 +289,25 @@ def calculate():
             flash('Error al obtener eventos del calendario', 'error')
             logger.error(f"Error al obtener eventos para el rango {start_date} - {end_date}")
             return redirect(url_for('dashboard'))
-        
-        # Obtener configuración del request directamente, ignorando cualquier sesión anterior
-        config_data = request.form.get('config', '{}')
-        
-        # Registro detallado de la configuración exactamente como se recibió
-        logger.info(f"Configuración recibida del formulario: {config_data}")
-        
-        # NO utilizar validate_config para no modificar la configuración, solo asegurar validez
-        if not config_data or (isinstance(config_data, str) and not config_data.strip()):
-            logger.warning("No se recibió configuración válida. Usando valores predeterminados.")
+            
+        # Procesar la configuración recibida directamente
+        try:
+            config = json.loads(config_data) if isinstance(config_data, str) else config_data
+            logger.info(f"CONFIGURACIÓN PARSEADA: {config}")
+            
+            # Verificar campos obligatorios
+            default_config = get_default_config()
+            for key in default_config:
+                if key not in config:
+                    logger.warning(f"Campo '{key}' faltante, usando valor por defecto: {default_config[key]}")
+                    config[key] = default_config[key]
+        except Exception as e:
+            logger.error(f"ERROR FATAL AL PROCESAR CONFIGURACIÓN: {e}")
+            logger.error(f"DATOS QUE CAUSARON ERROR: {config_data}")
             config = get_default_config()
-        else:
-            try:
-                config = json.loads(config_data) if isinstance(config_data, str) else config_data
-                # Solo completar campos faltantes, no modificar los existentes
-                default_config = get_default_config()
-                for key in default_config:
-                    if key not in config:
-                        config[key] = default_config[key]
-            except Exception as e:
-                logger.error(f"Error al procesar configuración: {e}. Usando valores predeterminados.")
-                config = get_default_config()
         
-        # Registrar la configuración final que se usará
-        logger.info(f"Configuración final a utilizar: {json.dumps(config, indent=2)}")
+        # Registrar configuración final
+        logger.info(f"CONFIGURACIÓN FINAL A USAR: {json.dumps(config, indent=2)}")
         
         # Log de valores específicos importantes
         logger.info(f"Usando horario: {config['work_start_time']} - {config['work_end_time']}")
@@ -416,34 +414,10 @@ def calculate():
 
 @app.route('/calculate_with_session', methods=['GET'])
 def calculate_with_session():
-    """Procesar cálculo con datos guardados en sesión después de autenticación"""
-    if 'form_data' not in session:
-        flash('No hay datos de búsqueda en la sesión', 'error')
-        return redirect(url_for('dashboard'))
-    
-    # Copiar la configuración para mantenerla en la sesión y que no se pierda
-    form_data = session.get('form_data').copy()
-    logger.info(f"Recuperando cálculo de sesión con datos: {form_data}")
-    
-    # IMPORTANTE: No modificar la configuración almacenada
-    if 'config' in form_data:
-        logger.info(f"Configuración recuperada de sesión: {form_data['config']}")
-    
-    # Re-crear una solicitud POST con los datos almacenados
-    class MockPost:
-        def __init__(self, data):
-            self.form = data
-    
-    # Guardar la request original
-    original_request = request
-    try:
-        # Mockear la request con nuestro objeto
-        request.__class__.form = form_data
-        # Llamar a la función de cálculo
-        return calculate()
-    finally:
-        # Restaurar la request original
-        request.__class__ = original_request.__class__
+    """DEPRECATED - Ya no se usa este método"""
+    logger.warning("DEPRECATED: calculate_with_session fue llamado pero ya no se utiliza")
+    flash('La sesión ha expirado. Por favor intente nuevamente.', 'error')
+    return redirect(url_for('dashboard'))
 
 # Ruta para depuración de sesión - solo habilitada en modo desarrollo
 @app.route('/debug/session')

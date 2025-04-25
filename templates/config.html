@@ -610,7 +610,10 @@ function saveConfig(event) {
         unlabeled_service: document.getElementById('unlabeled_service').value,
         group_unlabeled: document.getElementById('group_unlabeled').checked,
         use_color_tags: document.getElementById('use_color_tags').checked,
-        color_tags: {}
+        color_tags: {},
+        // Añadir timestamp para evitar caché
+        _timestamp: new Date().getTime(),
+        _version: 'fix-2025-04-27'
     };
 
     // Recolectar etiquetas de color
@@ -625,7 +628,7 @@ function saveConfig(event) {
 
     // Guardar en localStorage con manejo de errores más robusto
     try {
-        // Limpiar cualquier configuración existente primero
+        // ELIMINACIÓN FORZADA de la configuración anterior
         localStorage.removeItem('calendarConfig');
         
         // Convertir a JSON
@@ -649,10 +652,10 @@ function saveConfig(event) {
             console.warn('No se pudo guardar la configuración en cookie, pero sí en localStorage');
         }
         
-        // Verificar que los datos son los mismos que guardamos
-        const savedConfigObj = JSON.parse(savedConfig);
-        if (JSON.stringify(savedConfigObj) !== configJson) {
-            throw new Error('La configuración guardada no coincide con la original');
+        // Comprobar que JSON es válido
+        const parsedConfig = JSON.parse(savedConfig);
+        if (!parsedConfig) {
+            throw new Error('La configuración guardada no es JSON válido');
         }
         
         // Mostrar toast de éxito con información sobre lo guardado
@@ -661,12 +664,12 @@ function saveConfig(event) {
             ✅ Horario: ${config.work_start_time} - ${config.work_end_time}<br>
             ✅ Servicio principal: ${config.default_service}<br>
             ✅ Etiquetas de color: ${config.use_color_tags ? 'Habilitado' : 'Deshabilitado'}<br>
-            ✅ Guardado en: ${cookieConfig ? 'LocalStorage y Cookie' : 'Solo LocalStorage'}
+            ✅ Timestamp: ${new Date().toLocaleTimeString()}
         `;
         showToast('successToast', successMessage);
         
         // Log para debug
-        console.log('Configuración guardada:', config);
+        console.log('Configuración guardada con timestamp:', config);
         return true;
     } catch (error) {
         showToast('errorToast', `Error al guardar la configuración: ${error.message}`);
