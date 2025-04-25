@@ -649,7 +649,7 @@ function saveConfig(event) {
         // Verificar que se guardó en cookie
         const cookieConfig = getCookie('calendarConfig');
         if (!cookieConfig) {
-            console.warn('No se pudo guardar la configuración en cookie, pero sí en localStorage');
+            // No se pudo guardar en cookie, pero sí en localStorage
         }
         
         // Comprobar que JSON es válido
@@ -668,12 +668,9 @@ function saveConfig(event) {
         `;
         showToast('successToast', successMessage);
         
-        // Log para debug
-        console.log('Configuración guardada con timestamp:', config);
         return true;
     } catch (error) {
         showToast('errorToast', `Error al guardar la configuración: ${error.message}`);
-        console.error('Error completo al guardar configuración:', error);
         return false;
     }
 }
@@ -784,9 +781,6 @@ function verifyStoredConfig() {
         `;
         
         showToast('successToast', message, 10000);
-        
-        // También mostrar en consola para debugging
-        console.log('Configuración almacenada:', config);
         
     } catch (error) {
         showToast('errorToast', `Error al verificar la configuración: ${error.message}`);

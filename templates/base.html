@@ -227,7 +227,6 @@
             
             // Si es una sesión nueva después de logout, limpiar localStorage de configuración
             if (isFreshLogin) {
-                console.log('Detectada sesión nueva después de logout. Limpiando caché local.');
                 try {
                     // Guardar temporalmente la configuración
                     const oldConfig = localStorage.getItem('calendarConfig');
@@ -236,10 +235,9 @@
                     if (oldConfig) {
                         localStorage.removeItem('calendarConfig');
                         localStorage.setItem('calendarConfig', oldConfig);
-                        console.log('Configuración refrescada después de logout/login');
                     }
                 } catch (error) {
-                    console.error('Error al limpiar caché post-logout:', error);
+                    // Manejo silencioso de errores
                 }
             }
             
@@ -250,21 +248,18 @@
                 window.history.replaceState({}, document.title, newUrl);
             }
             
-            // Verificar si hay configuración en localStorage y asegurar que es accesible
+            // Verificar si hay configuración en localStorage
             try {
                 const config = localStorage.getItem('calendarConfig');
-                console.log('Configuración al cargar la página:', config);
                 
                 // Si hay configuración, intentar parsearla para verificar
                 if (config) {
-                    const configObj = JSON.parse(config);
-                    console.log('Configuración parseada correctamente:', configObj);
-                    
+                    JSON.parse(config);
                     // Guardar de nuevo para asegurar persistencia
-                    localStorage.setItem('calendarConfig', JSON.stringify(configObj));
+                    localStorage.setItem('calendarConfig', config);
                 }
             } catch (error) {
-                console.error('Error al verificar configuración:', error);
+                // Error silencioso - será manejado por la aplicación cuando intente usar la config
             }
         });
     </script>

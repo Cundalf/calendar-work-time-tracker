@@ -85,7 +85,7 @@ logger.add(f"{log_path}/app.log",
            rotation="10 MB", 
            retention="1 month")
 # Agregar handler para mostrar todos los logs en la consola
-logger.add(lambda msg: print(msg), level=log_level, format=log_format)  # Mostrar todos los logs en consola, no solo warnings
+logger.add(lambda msg: print(msg), level=log_level, format=log_format)
 
 # Definir horario predeterminado (para usar time explícitamente)
 DEFAULT_WORK_START = time(9, 0)  # 9:00 AM
@@ -110,8 +110,6 @@ def get_default_config():
 # Función para validar la configuración y aplicar defaults cuando sea necesario
 def validate_config(config_data):
     """Valida la configuración recibida y aplica valores predeterminados SOLO si es necesario"""
-    logger.info(f"Iniciando validación de configuración. Tipo recibido: {type(config_data)}")
-    
     # Devolver el valor predeterminado solo si NO hay configuración
     if not config_data:
         logger.warning("No se recibió configuración. Usando valores predeterminados.")
@@ -123,13 +121,9 @@ def validate_config(config_data):
     
     try:
         if isinstance(config_data, str):
-            logger.info(f"Parseando configuración como string JSON. Longitud: {len(config_data)}")
             config = json.loads(config_data)
         else:
-            logger.info(f"Usando configuración que ya es un objeto. Tipo: {type(config_data)}")
             config = config_data
-            
-        logger.info(f"Configuración después del parsing: {config}")
         
         # Verificar que existan todas las claves necesarias sin reemplazarlas
         default_config = get_default_config()
@@ -142,11 +136,10 @@ def validate_config(config_data):
         return config
         
     except json.JSONDecodeError as e:
-        logger.error(f"Error al parsear configuración JSON: {e}. Usando valores predeterminados.")
-        logger.error(f"String que causó el error: '{config_data}'")
+        logger.error(f"Error al parsear configuración JSON: {e}")
         return get_default_config()
     except Exception as e:
-        logger.error(f"Error inesperado al procesar configuración: {e}. Usando valores predeterminados.")
+        logger.error(f"Error inesperado al procesar configuración: {e}")
         return get_default_config()
 
 # Contexto global para las plantillas
@@ -251,26 +244,7 @@ def logout():
 @app.route('/calculate', methods=['POST'])
 def calculate():
     try:
-        # HARD RESET - Forzar limpieza completa de sesión
-        if 'form_data' in session:
-            del session['form_data']
-            logger.info("FORZADO: Limpieza de form_data en sesión")
-            
-        # Volcar todo el contenido de la solicitud para depuración
-        logger.info(f"RAW REQUEST DATA: {request.get_data(as_text=True)}")
-        logger.info(f"FORM: {request.form}")
-        logger.info(f"COOKIES: {request.cookies}")
-        logger.info(f"SESSION: {dict(session)}")
-        
-        # Log de datos recibidos
-        logger.info(f"Solicitud POST recibida: {request.form}")
-        logger.info(f"Headers recibidos: {dict(request.headers)}")
-        
-        # Verificar timestamp
-        timestamp = request.form.get('timestamp')
-        if timestamp:
-            logger.info(f"Timestamp recibido: {timestamp} - {datetime.fromtimestamp(int(timestamp)/1000).strftime('%Y-%m-%d %H:%M:%S')}")
-        
+        # Obtener datos de fechas del formulario
         start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d').date()
         end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d').date()
         
@@ -279,12 +253,9 @@ def calculate():
             logger.warning(f"Intento de búsqueda con fechas inválidas: start={start_date}, end={end_date}")
             return redirect(url_for('dashboard'))
             
-        # IMPORTANTE: Extraer la configuración directamente del request
-        # No guardar en sesión para evitar contaminación
+        # Extraer la configuración directamente del request
         config_data = request.form.get('config', '{}')
-        logger.info(f"CONFIG RECIBIDA DIRECTAMENTE: {config_data}")
-        
-        # NO GUARDAR DATOS DEL FORMULARIO EN SESIÓN - SOLO LAS CREDENCIALES
+        logger.info(f"Procesando cálculo para el rango: {start_date} - {end_date}")
         
         # Obtener credenciales de la sesión
         credentials = session.get('credentials')
@@ -298,8 +269,7 @@ def calculate():
             session.modified = True
         
         if not service:
-            # En lugar de usar los datos del form, redirigir y empezar de nuevo
-            logger.info("Redirigiendo a autenticación con Google Calendar - NO SE GUARDA CONFIG")
+            logger.warning("Redirección a autenticación - usuario sin credenciales")
             flash('Se requiere autenticación. Por favor inténtelo nuevamente después de iniciar sesión.', 'info')
             return redirect(url_for('auth', next=url_for('dashboard')))
         
@@ -311,10 +281,9 @@ def calculate():
             logger.error(f"Error al obtener eventos para el rango {start_date} - {end_date}")
             return redirect(url_for('dashboard'))
             
-        # Procesar la configuración recibida directamente
+        # Procesar la configuración recibida
         try:
             config = json.loads(config_data) if isinstance(config_data, str) else config_data
-            logger.info(f"CONFIGURACIÓN PARSEADA: {config}")
             
             # Verificar campos obligatorios
             default_config = get_default_config()
@@ -323,29 +292,10 @@ def calculate():
                     logger.warning(f"Campo '{key}' faltante, usando valor por defecto: {default_config[key]}")
                     config[key] = default_config[key]
         except Exception as e:
-            logger.error(f"ERROR FATAL AL PROCESAR CONFIGURACIÓN: {e}")
-            logger.error(f"DATOS QUE CAUSARON ERROR: {config_data}")
+            logger.error(f"Error al procesar configuración: {e}")
             config = get_default_config()
         
-        # Registrar configuración final
-        logger.info(f"CONFIGURACIÓN FINAL A USAR: {json.dumps(config, indent=2)}")
-        
-        # Log de valores específicos importantes
-        logger.info(f"Usando horario: {config['work_start_time']} - {config['work_end_time']}")
-        logger.info(f"Servicio predeterminado: {config['default_service']}")
-        logger.info(f"Etiquetas de color habilitadas: {config.get('use_color_tags', False)}")
-        
-        # Para verificación adicional, añadir análisis del valor original vs. procesado 
-        if config_data and isinstance(config_data, str):
-            try:
-                original_config = json.loads(config_data)
-                for key in ['default_service', 'ooo_service', 'focus_time_service', 'unlabeled_service']:
-                    if key in original_config and key in config:
-                        if original_config[key] != config[key]:
-                            logger.warning(f"¡DIFERENCIA DETECTADA en '{key}'! Original: '{original_config[key]}', Actual: '{config[key]}'")
-            except:
-                pass
-        
+        # Calcular resumen semanal
         weekly_summary = calculate_weekly_summary(
             events, start_date, end_date, timezone,
             datetime.strptime(config['work_start_time'], '%H:%M').time(),
@@ -361,84 +311,44 @@ def calculate():
         
         # Procesar resumen semanal
         sorted_weeks = sorted(weekly_summary.keys())
-        for week_start_date in sorted_weeks:
-            week_end_date = week_start_date + timedelta(days=6)
-            display_week_end = min(week_end_date, end_date)
+        for week_key in sorted_weeks:
+            week_data = weekly_summary[week_key]
             
-            week_data = weekly_summary[week_start_date]
-            if not week_data:
-                continue
-                
-            sorted_services = sorted(week_data.keys())
-            week_services = []
-            total_week_hours = timedelta()
-            
-            for service_name in sorted_services:
-                duration = week_data[service_name]
-                if duration > timedelta(seconds=1):
-                    week_services.append({
-                        'name': service_name,
-                        'duration': format_timedelta(duration),
-                        'raw_duration': duration
-                    })
-                    total_week_hours += duration
-                    period_totals[service_name] += duration
-                    grand_total_time += duration
+            # Agregar los totales de esta semana a los totales del período
+            for day in week_data['days'].values():
+                for service, time_spent in day['services'].items():
+                    period_totals[service] += time_spent
+                    grand_total_time += time_spent
             
             processed_summary.append({
-                'start_date': week_start_date.strftime('%d/%m'),
-                'end_date': display_week_end.strftime('%d/%m/%Y'),
-                'services': week_services,
-                'total_hours': format_timedelta(total_week_hours),
-                'raw_total': total_week_hours
+                'week': week_key,
+                'week_description': week_data['description'],
+                'days': week_data['days'],
+                'week_total': week_data['total'],
+                'week_total_formatted': format_timedelta(week_data['total'])
             })
         
-        # Procesar totales del periodo
-        period_summary = []
-        if period_totals:
-            for service_name, duration in sorted(period_totals.items()):
-                if duration > timedelta(seconds=1):
-                    # Calcular porcentaje
-                    percentage = (duration.total_seconds() / grand_total_time.total_seconds()) * 100 if grand_total_time.total_seconds() > 0 else 0
-                    
-                    period_summary.append({
-                        'name': service_name,
-                        'duration': format_timedelta(duration),
-                        'percentage': round(percentage, 1)
-                    })
+        # Convertir los totales del período a formato legible
+        formatted_period_totals = {}
+        for service, time_spent in period_totals.items():
+            formatted_period_totals[service] = {
+                'time': time_spent,
+                'formatted': format_timedelta(time_spent)
+            }
         
-        logger.info(f"Cálculo completado para {start_date} - {end_date}: {format_timedelta(grand_total_time)} horas totales")
+        # Si no hay resultados, mostrar mensaje
+        if not processed_summary:
+            flash('No se encontraron datos para el período seleccionado', 'warning')
+            return redirect(url_for('dashboard'))
         
-        # Añadir información resumida de la configuración usada para mostrarla en los resultados
-        config_summary = {
-            'work_time': f"{config['work_start_time']} a {config['work_end_time']}",
-            'lunch': f"{config['lunch_duration_minutes']} min",
-            'default_service': config['default_service'],
-            'use_color_tags': config['use_color_tags']
-        }
-        
-        return render_template(
-            'results.html', 
-            weekly_summary=processed_summary,
-            period_summary=period_summary,
-            start_date=start_date.strftime('%d/%m/%Y'),
-            end_date=end_date.strftime('%d/%m/%Y'),
-            total_hours=format_timedelta(grand_total_time),
-            config_summary=config_summary  # Pasar el resumen de configuración
-        )
-        
+        # Si hay resultados, mostrar la tabla
+        return render_template('results.html', weeks=processed_summary, 
+                            period_totals=formatted_period_totals, 
+                            grand_total=format_timedelta(grand_total_time))
     except Exception as e:
-        error_msg = f'Error inesperado: {str(e)}'
-        flash(error_msg, 'error')
-        logger.exception(f"Error en calculate: {str(e)}")
+        logger.error(f"Error inesperado: {e}")
+        flash(f'Error al procesar la solicitud: {str(e)}', 'error')
         return redirect(url_for('dashboard'))
-
-@app.route('/calculate_with_session', methods=['GET'])
-def calculate_with_session():
-    """DEPRECATED - Ya no se usa este método"""
-    logger.warning("DEPRECATED: calculate_with_session fue llamado pero ya no se utiliza")
-    flash('La sesión ha expirado. Por favor intente nuevamente.', 'error')
-    return redirect(url_for('dashboard'))
 
 # Ruta para depuración de sesión - solo habilitada en modo desarrollo
 @app.route('/debug/session')
@@ -454,16 +364,13 @@ def debug_session():
     session_data = {}
     for key, value in session.items():
         try:
-            # Intentar serializar para ver si es JSONifiable
             json.dumps({key: value})
             session_data[key] = value
         except TypeError:
-            # Si no es serializable, incluir una representación en cadena
             session_data[key] = str(value)
     
     return jsonify({
         'session': session_data,
-        'session_id': session.sid if hasattr(session, 'sid') else None,
         'timestamp': datetime.now().isoformat()
     })
 

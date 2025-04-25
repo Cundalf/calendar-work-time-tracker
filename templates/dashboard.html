@@ -184,7 +184,6 @@ function submitForm() {
         
         // Obtener configuración desde localStorage directamente sin manipulación
         let config = localStorage.getItem('calendarConfig');
-        console.log('Configuración directa de localStorage:', config);
         
         // Comprobar si la configuración es válida
         if (!config) {
@@ -197,7 +196,6 @@ function submitForm() {
             JSON.parse(config);
         } catch (e) {
             showToast('errorToast', 'Configuración inválida. Por favor, reconfigura tus preferencias.');
-            console.error('Error en JSON:', e);
             return;
         }
         
@@ -234,8 +232,6 @@ function submitForm() {
         // Añadir al DOM y enviar
         document.body.appendChild(form);
         
-        console.log('Enviando formulario nuevo con config:', config);
-        
         // IMPORTANTE: Esperar un momento para asegurar que todo esté listo
         setTimeout(() => {
             form.submit();
@@ -243,7 +239,6 @@ function submitForm() {
         
     } catch (error) {
         showToast('errorToast', `Error al enviar formulario: ${error.message}`);
-        console.error('Error completo:', error);
     }
 }
 </script>
