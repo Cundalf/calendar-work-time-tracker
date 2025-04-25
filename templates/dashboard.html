@@ -161,6 +161,40 @@ function submitForm() {
         return;
     }
     
+    // Validar que la configuración es JSON válido
+    try {
+        const configObj = JSON.parse(config);
+        
+        // Verificar campos obligatorios
+        const requiredFields = ['work_start_time', 'work_end_time', 'default_service'];
+        const missingFields = [];
+        
+        for (const field of requiredFields) {
+            if (!configObj[field]) {
+                missingFields.push(field);
+            }
+        }
+        
+        if (missingFields.length > 0) {
+            showToast('errorToast', `Configuración incompleta. Faltan: ${missingFields.join(', ')}. Por favor, configura tus preferencias correctamente.`);
+            return;
+        }
+        
+        // Verificar si hay valores inválidos/vacíos en los campos obligatorios
+        for (const field of requiredFields) {
+            const value = configObj[field].toString().trim();
+            if (value === '') {
+                showToast('errorToast', `El campo ${field} no puede estar vacío. Por favor, revisa tu configuración.`);
+                return;
+            }
+        }
+        
+        console.log('Configuración validada correctamente:', configObj);
+    } catch (error) {
+        showToast('errorToast', `Error al procesar la configuración: ${error.message}. Por favor, reconfigura tus preferencias.`);
+        return;
+    }
+    
     // Guardar fechas en localStorage
     const datesToSave = {
         startDate: startDate,
@@ -170,6 +204,9 @@ function submitForm() {
     
     // Añadir configuración al formulario
     document.getElementById('configData').value = config;
+    
+    // Log para debugging
+    console.log('Enviando formulario con config:', config);
     
     // Enviar formulario
     document.getElementById('calculateForm').submit();

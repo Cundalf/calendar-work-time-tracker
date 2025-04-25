@@ -61,6 +61,47 @@ logger.add(lambda msg: print(msg), level="WARNING", format=log_format)  # Solo w
 DEFAULT_WORK_START = time(9, 0)  # 9:00 AM
 DEFAULT_WORK_END = time(17, 0)   # 5:00 PM
 
+# Función para obtener configuración predeterminada
+def get_default_config():
+    """Retorna una configuración predeterminada con valores seguros"""
+    return {
+        'work_start_time': '09:00',
+        'work_end_time': '17:00',
+        'lunch_duration_minutes': 60,
+        'default_service': 'TIEMPO NO ETIQUETADO',
+        'ooo_service': 'FUERA DE OFICINA',
+        'focus_time_service': 'TIEMPO DE CONCENTRACIÓN',
+        'unlabeled_service': 'SIN ETIQUETA',
+        'group_unlabeled': False,
+        'use_color_tags': False,
+        'color_tags': {}
+    }
+
+# Función para validar la configuración y aplicar defaults cuando sea necesario
+def validate_config(config_data):
+    """Valida la configuración recibida y aplica valores predeterminados si es necesario"""
+    if not config_data:
+        logger.warning("No se recibió configuración. Usando valores predeterminados.")
+        return get_default_config()
+    
+    try:
+        if isinstance(config_data, str):
+            config = json.loads(config_data)
+        else:
+            config = config_data
+    except json.JSONDecodeError as e:
+        logger.error(f"Error al parsear configuración JSON: {e}. Usando valores predeterminados.")
+        return get_default_config()
+    
+    # Validar campos esenciales y aplicar defaults si faltan
+    default_config = get_default_config()
+    for key, default_value in default_config.items():
+        if key not in config or config[key] is None or (isinstance(config[key], str) and config[key].strip() == ''):
+            logger.warning(f"Falta configuración para '{key}'. Usando valor predeterminado: {default_value}")
+            config[key] = default_value
+    
+    return config
+
 # Contexto global para las plantillas
 @app.context_processor
 def inject_now():
@@ -200,12 +241,20 @@ def calculate():
         
         # Obtener configuración del localStorage (se enviará desde el frontend)
         config_data = request.form.get('config')
-        if not config_data:
-            flash('Error: No se encontró la configuración del usuario', 'error')
-            logger.error("Configuración de usuario no encontrada")
-            return redirect(url_for('dashboard'))
-            
-        config = json.loads(config_data)
+        
+        # Registro detallado de la configuración recibida
+        logger.info(f"Configuración recibida del formulario: {config_data}")
+        
+        # Validar y aplicar valores predeterminados cuando sea necesario
+        config = validate_config(config_data)
+        
+        # Registrar la configuración final que se usará
+        logger.info(f"Configuración final a utilizar: {json.dumps(config, indent=2)}")
+        
+        # Log de valores específicos importantes
+        logger.info(f"Usando horario: {config['work_start_time']} - {config['work_end_time']}")
+        logger.info(f"Servicio predeterminado: {config['default_service']}")
+        logger.info(f"Etiquetas de color habilitadas: {config.get('use_color_tags', False)}")
         
         weekly_summary = calculate_weekly_summary(
             events, start_date, end_date, timezone,
