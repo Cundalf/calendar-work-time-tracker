@@ -96,7 +96,7 @@ Durante todo el proceso, la IA generó código, proporcionó explicaciones detal
 
 ## Duración
 
-El desarrollo completo del proyecto, desde la concepción inicial hasta la finalización de la aplicación web, tomó **5 horas reloj**. Este tiempo no incluye el despliegue en internet, que sería una fase adicional.
+El desarrollo completo del proyecto, desde la concepción inicial hasta la finalización de la aplicación web, tomó **7 horas reloj**. Con despliegue incluido en la nube guiado por IA (Claude + Gemini).
 
 Esta rapidez de desarrollo demuestra el potencial de la metodología Vibe Coding y el uso de IA avanzada para agilizar el proceso de creación de software. Lo que tradicionalmente podría haber tomado semanas o incluso meses, se logró en cuestión de horas gracias a la colaboración eficiente entre humano e IA.
 
