@@ -8,7 +8,21 @@ Group=www-data
 WorkingDirectory=/path/to/your/app  # Cambiar por la ruta real
 Environment="PATH=/path/to/your/app/venv/bin"  # Cambiar por la ruta real
 EnvironmentFile=/path/to/your/app/.env  # Cambiar por la ruta real
-ExecStart=/path/to/your/app/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 wsgi:app
+# Configuración modificada para evitar problemas de caché y sesión
+ExecStart=/path/to/your/app/venv/bin/gunicorn \
+    --workers 4 \
+    --bind 127.0.0.1:5000 \
+    --timeout 60 \
+    --max-requests 250 \
+    --max-requests-jitter 50 \
+    --worker-class sync \
+    --preload \
+    --forwarded-allow-ips="*" \
+    wsgi:app
+
+# Reiniciar automáticamente en caso de fallo
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target 

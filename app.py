@@ -27,12 +27,41 @@ load_dotenv()
 # Configuración de la aplicación
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave_por_defecto_no_usar_en_produccion')
-app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_TYPE'] = os.getenv('SESSION_STORAGE', 'filesystem')
 # Extraer solo el valor numérico, eliminando cualquier comentario
-session_lifetime = os.getenv('SESSION_LIFETIME', '86400')
+session_lifetime = os.getenv('SESSION_LIFETIME', '3600') # Reducir a 1 hora por defecto
 if session_lifetime and ' ' in session_lifetime:
     session_lifetime = session_lifetime.split(' ')[0]
-app.config['PERMANENT_SESSION_LIFETIME'] = int(session_lifetime)  # 24 horas por defecto
+app.config['PERMANENT_SESSION_LIFETIME'] = int(session_lifetime)
+
+# Configuraciones adicionales para prevenir problemas de sesión
+app.config['SESSION_USE_SIGNER'] = True  # Firmar cookies de sesión
+app.config['SESSION_FILE_THRESHOLD'] = 500  # Límite de archivos en filesystem storage
+app.config['SESSION_PERMANENT'] = False  # Por defecto sesiones no permanentes
+
+# Configuración para forzar que las cookies sean enviadas solo en conexiones seguras en producción
+if os.getenv('FLASK_ENV') != 'development':
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['REMEMBER_COOKIE_SECURE'] = True
+    app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+
+# Deshabilitar caché globalmente si está configurado
+disable_cache = os.getenv('DISABLE_CACHE', 'false').lower() in ('true', 'yes', '1')
+if disable_cache:
+    # No cachear recursos estáticos
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+    
+    @app.after_request
+    def add_no_cache_headers(response):
+        """Añadir encabezados para prevenir caché en todas las respuestas"""
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        # Añadir timestamp para forzar refrescos
+        response.headers['X-Timestamp'] = str(datetime.now().timestamp())
+        return response
 
 # Configuración de logs
 log_level = os.getenv('LOG_LEVEL', 'INFO')
@@ -124,14 +153,6 @@ def validate_config(config_data):
 @app.context_processor
 def inject_now():
     return {'now': datetime.now()}
-
-# Agregar encabezados de no caché a todas las respuestas
-@app.after_request
-def add_no_cache_headers(response):
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
 
 # Rutas
 @app.route('/')
