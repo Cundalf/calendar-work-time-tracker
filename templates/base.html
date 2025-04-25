@@ -223,6 +223,26 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Añadir un parámetro de tiempo en cada página para evitar caché
             const urlParams = new URLSearchParams(window.location.search);
+            const isFreshLogin = urlParams.has('_fresh');
+            
+            // Si es una sesión nueva después de logout, limpiar localStorage de configuración
+            if (isFreshLogin) {
+                console.log('Detectada sesión nueva después de logout. Limpiando caché local.');
+                try {
+                    // Guardar temporalmente la configuración
+                    const oldConfig = localStorage.getItem('calendarConfig');
+                    
+                    // Limpiar y restaurar para forzar actualización
+                    if (oldConfig) {
+                        localStorage.removeItem('calendarConfig');
+                        localStorage.setItem('calendarConfig', oldConfig);
+                        console.log('Configuración refrescada después de logout/login');
+                    }
+                } catch (error) {
+                    console.error('Error al limpiar caché post-logout:', error);
+                }
+            }
+            
             if (!urlParams.has('_t')) {
                 const timestamp = new Date().getTime();
                 const newUrl = window.location.pathname + '?_t=' + timestamp + 

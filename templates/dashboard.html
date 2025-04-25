@@ -125,6 +125,25 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
+// Función para establecer una cookie
+function setCookie(name, value, days) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + expires.toUTCString() + ';path=/;samesite=strict';
+}
+
+// Función para obtener el valor de una cookie
+function getCookie(name) {
+    const nameEQ = name + '=';
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+    }
+    return null;
+}
+
 function showToast(toastId, message) {
     const toast = document.getElementById(toastId);
     if (message) {
@@ -156,8 +175,25 @@ function submitForm() {
     
     // Obtener configuración del localStorage siempre fresca
     try {
-        // Forzar la actualización del localStorage
+        // Limpiar formularios previos para evitar errores
+        const oldForms = document.querySelectorAll('form[style="display: none;"]');
+        oldForms.forEach(form => form.remove());
+        
+        // Intentar obtener de localStorage primero
         let freshConfig = localStorage.getItem('calendarConfig');
+        
+        console.log('Configuración inicial encontrada:', freshConfig);
+        
+        // Si no hay en localStorage, intentar recuperar de cookie como respaldo
+        if (!freshConfig) {
+            const cookieConfig = getCookie('calendarConfig');
+            if (cookieConfig) {
+                freshConfig = cookieConfig;
+                console.log('Recuperada configuración desde cookie');
+                // Restaurar en localStorage
+                localStorage.setItem('calendarConfig', freshConfig);
+            }
+        }
         
         if (!freshConfig) {
             showToast('errorToast', 'No se ha encontrado configuración. Por favor, configura tus preferencias primero.');
@@ -168,6 +204,12 @@ function submitForm() {
         localStorage.removeItem('calendarConfig');
         // Y guardarlo otra vez para asegurar que esté fresco
         localStorage.setItem('calendarConfig', freshConfig);
+        
+        // También guardar en cookie como respaldo por 30 días
+        setCookie('calendarConfig', freshConfig, 30);
+        
+        console.log('Config en localStorage después de refresh:', localStorage.getItem('calendarConfig'));
+        console.log('Config en cookie después de refresh:', getCookie('calendarConfig'));
         
         // Verificar que la configuración es JSON válido
         const configObj = JSON.parse(freshConfig);
@@ -197,6 +239,12 @@ function submitForm() {
         }
         
         console.log('Configuración validada correctamente:', configObj);
+        console.log('Servicios configurados:', JSON.stringify({
+            default: configObj.default_service,
+            ooo: configObj.ooo_service,
+            focus: configObj.focus_time_service,
+            unlabeled: configObj.unlabeled_service
+        }));
         
         // Guardar fechas en localStorage
         const datesToSave = {
@@ -205,29 +253,35 @@ function submitForm() {
         };
         localStorage.setItem('calendarDates', JSON.stringify(datesToSave));
         
-        // Asegurarse de obtener la configuración más reciente del localStorage
-        freshConfig = localStorage.getItem('calendarConfig');
-        console.log('Configuración del localStorage antes de enviar:', freshConfig);
+        // Crear un form oculto para enviar la solicitud
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("calculate") }}';
+        form.style.display = 'none';
         
-        // Generar timestamp para prevenir caché
+        // Añadir los campos
+        const addField = (name, value) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        };
+        
+        addField('start_date', startDate);
+        addField('end_date', endDate);
+        addField('config', freshConfig);
+        
+        // Añadir timestamp para prevenir caché y versión para debug
         const timestamp = new Date().getTime();
+        addField('timestamp', timestamp);
+        addField('version', 'fix-2025-04-26');
         
-        // Añadir configuración al formulario
-        document.getElementById('configData').value = freshConfig;
-        
-        // Añadir timestamp para prevenir caché
-        const timestampInput = document.createElement('input');
-        timestampInput.type = 'hidden';
-        timestampInput.name = 'timestamp';
-        timestampInput.value = timestamp;
-        document.getElementById('calculateForm').appendChild(timestampInput);
-        
-        // Log para debugging
+        // Añadir el form al documento y enviarlo
+        document.body.appendChild(form);
         console.log('Enviando formulario con config:', freshConfig);
         console.log('Con timestamp:', timestamp);
-        
-        // Enviar formulario
-        document.getElementById('calculateForm').submit();
+        form.submit();
     } catch (error) {
         showToast('errorToast', `Error al procesar la configuración: ${error.message}. Por favor, reconfigura tus preferencias.`);
         console.error('Error completo:', error);

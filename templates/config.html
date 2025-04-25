@@ -570,6 +570,25 @@ function validateForm() {
     return true;
 }
 
+// Función para establecer una cookie
+function setCookie(name, value, days) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + expires.toUTCString() + ';path=/;samesite=strict';
+}
+
+// Función para obtener el valor de una cookie
+function getCookie(name) {
+    const nameEQ = name + '=';
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+    }
+    return null;
+}
+
 function saveConfig(event) {
     // Prevenir el envío del formulario por defecto
     if (event) {
@@ -615,10 +634,19 @@ function saveConfig(event) {
         // Guardar en localStorage
         localStorage.setItem('calendarConfig', configJson);
         
-        // Verificar que se guardó correctamente
+        // También guardar en cookie como respaldo por 30 días
+        setCookie('calendarConfig', configJson, 30);
+        
+        // Verificar que se guardó correctamente en localStorage
         const savedConfig = localStorage.getItem('calendarConfig');
         if (!savedConfig) {
-            throw new Error('No se pudo verificar la configuración guardada');
+            throw new Error('No se pudo verificar la configuración guardada en localStorage');
+        }
+        
+        // Verificar que se guardó en cookie
+        const cookieConfig = getCookie('calendarConfig');
+        if (!cookieConfig) {
+            console.warn('No se pudo guardar la configuración en cookie, pero sí en localStorage');
         }
         
         // Verificar que los datos son los mismos que guardamos
@@ -632,7 +660,8 @@ function saveConfig(event) {
             <strong>Configuración guardada correctamente:</strong><br>
             ✅ Horario: ${config.work_start_time} - ${config.work_end_time}<br>
             ✅ Servicio principal: ${config.default_service}<br>
-            ✅ Etiquetas de color: ${config.use_color_tags ? 'Habilitado' : 'Deshabilitado'}
+            ✅ Etiquetas de color: ${config.use_color_tags ? 'Habilitado' : 'Deshabilitado'}<br>
+            ✅ Guardado en: ${cookieConfig ? 'LocalStorage y Cookie' : 'Solo LocalStorage'}
         `;
         showToast('successToast', successMessage);
         

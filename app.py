@@ -80,9 +80,10 @@ def get_default_config():
 
 # Función para validar la configuración y aplicar defaults cuando sea necesario
 def validate_config(config_data):
-    """Valida la configuración recibida y aplica valores predeterminados si es necesario"""
+    """Valida la configuración recibida y aplica valores predeterminados SOLO si es necesario"""
     logger.info(f"Iniciando validación de configuración. Tipo recibido: {type(config_data)}")
     
+    # Devolver el valor predeterminado solo si NO hay configuración
     if not config_data:
         logger.warning("No se recibió configuración. Usando valores predeterminados.")
         return get_default_config()
@@ -100,6 +101,17 @@ def validate_config(config_data):
             config = config_data
             
         logger.info(f"Configuración después del parsing: {config}")
+        
+        # Verificar que existan todas las claves necesarias sin reemplazarlas
+        default_config = get_default_config()
+        for key in default_config.keys():
+            if key not in config:
+                logger.warning(f"Falta campo '{key}' en la configuración. Usando valor predeterminado: {default_config[key]}")
+                config[key] = default_config[key]
+        
+        # ¡IMPORTANTE: NO modificar los valores existentes!
+        return config
+        
     except json.JSONDecodeError as e:
         logger.error(f"Error al parsear configuración JSON: {e}. Usando valores predeterminados.")
         logger.error(f"String que causó el error: '{config_data}'")
@@ -107,23 +119,6 @@ def validate_config(config_data):
     except Exception as e:
         logger.error(f"Error inesperado al procesar configuración: {e}. Usando valores predeterminados.")
         return get_default_config()
-    
-    # Validar campos esenciales y aplicar defaults si faltan
-    default_config = get_default_config()
-    for key, default_value in default_config.items():
-        if key not in config:
-            logger.warning(f"Falta campo '{key}' en la configuración. Usando valor predeterminado: {default_value}")
-            config[key] = default_value
-        elif config[key] is None:
-            logger.warning(f"Campo '{key}' es None. Usando valor predeterminado: {default_value}")
-            config[key] = default_value
-        elif isinstance(config[key], str) and config[key].strip() == '':
-            logger.warning(f"Campo '{key}' es string vacío. Usando valor predeterminado: {default_value}")
-            config[key] = default_value
-        else:
-            logger.info(f"Campo '{key}' configurado correctamente con valor: {config[key]}")
-    
-    return config
 
 # Contexto global para las plantillas
 @app.context_processor
@@ -222,10 +217,15 @@ def oauth2callback():
 @app.route('/logout')
 def logout():
     """Cerrar sesión y eliminar credenciales"""
-    if 'credentials' in session:
-        session.pop('credentials')
+    # Limpiar toda la sesión completamente
+    session.clear()
     flash('Sesión cerrada. Se ha desconectado de Google Calendar', 'success')
-    return redirect(url_for('dashboard'))
+    
+    # Log detallado
+    logger.info("Usuario ha cerrado sesión, se ha limpiado toda la sesión")
+    
+    # Redirigir al dashboard con un parámetro para forzar recarga limpia
+    return redirect(url_for('dashboard', _fresh=datetime.now().timestamp()))
 
 @app.route('/calculate', methods=['POST'])
 def calculate():
@@ -233,6 +233,10 @@ def calculate():
         # Log completo de todos los datos recibidos en la solicitud
         logger.info(f"Solicitud POST recibida: {request.form}")
         logger.info(f"Headers recibidos: {dict(request.headers)}")
+        
+        # IMPORTANTE! Verificar si esta solicitud viene de un formulario fresco o de calculate_with_session
+        is_fresh_request = 'form_data' not in session
+        logger.info(f"¿Es una solicitud fresca? {is_fresh_request}")
         
         # Verificar si hay un timestamp para prevenir caché
         timestamp = request.form.get('timestamp')
@@ -248,6 +252,7 @@ def calculate():
             return redirect(url_for('dashboard'))
         
         # Guardar datos del formulario en la sesión para restaurarlos después de autenticación
+        # Pero SOLO los datos mínimos necesarios, no guardar configuración
         form_data = {
             'start_date': request.form['start_date'],
             'end_date': request.form['end_date'],
@@ -281,14 +286,27 @@ def calculate():
             logger.error(f"Error al obtener eventos para el rango {start_date} - {end_date}")
             return redirect(url_for('dashboard'))
         
-        # Obtener configuración del localStorage (se enviará desde el frontend)
-        config_data = request.form.get('config')
+        # Obtener configuración del request directamente, ignorando cualquier sesión anterior
+        config_data = request.form.get('config', '{}')
         
-        # Registro detallado de la configuración recibida
+        # Registro detallado de la configuración exactamente como se recibió
         logger.info(f"Configuración recibida del formulario: {config_data}")
         
-        # Validar y aplicar valores predeterminados cuando sea necesario
-        config = validate_config(config_data)
+        # NO utilizar validate_config para no modificar la configuración, solo asegurar validez
+        if not config_data or (isinstance(config_data, str) and not config_data.strip()):
+            logger.warning("No se recibió configuración válida. Usando valores predeterminados.")
+            config = get_default_config()
+        else:
+            try:
+                config = json.loads(config_data) if isinstance(config_data, str) else config_data
+                # Solo completar campos faltantes, no modificar los existentes
+                default_config = get_default_config()
+                for key in default_config:
+                    if key not in config:
+                        config[key] = default_config[key]
+            except Exception as e:
+                logger.error(f"Error al procesar configuración: {e}. Usando valores predeterminados.")
+                config = get_default_config()
         
         # Registrar la configuración final que se usará
         logger.info(f"Configuración final a utilizar: {json.dumps(config, indent=2)}")
@@ -297,6 +315,17 @@ def calculate():
         logger.info(f"Usando horario: {config['work_start_time']} - {config['work_end_time']}")
         logger.info(f"Servicio predeterminado: {config['default_service']}")
         logger.info(f"Etiquetas de color habilitadas: {config.get('use_color_tags', False)}")
+        
+        # Para verificación adicional, añadir análisis del valor original vs. procesado 
+        if config_data and isinstance(config_data, str):
+            try:
+                original_config = json.loads(config_data)
+                for key in ['default_service', 'ooo_service', 'focus_time_service', 'unlabeled_service']:
+                    if key in original_config and key in config:
+                        if original_config[key] != config[key]:
+                            logger.warning(f"¡DIFERENCIA DETECTADA en '{key}'! Original: '{original_config[key]}', Actual: '{config[key]}'")
+            except:
+                pass
         
         weekly_summary = calculate_weekly_summary(
             events, start_date, end_date, timezone,
@@ -360,13 +389,23 @@ def calculate():
                     })
         
         logger.info(f"Cálculo completado para {start_date} - {end_date}: {format_timedelta(grand_total_time)} horas totales")
+        
+        # Añadir información resumida de la configuración usada para mostrarla en los resultados
+        config_summary = {
+            'work_time': f"{config['work_start_time']} a {config['work_end_time']}",
+            'lunch': f"{config['lunch_duration_minutes']} min",
+            'default_service': config['default_service'],
+            'use_color_tags': config['use_color_tags']
+        }
+        
         return render_template(
             'results.html', 
             weekly_summary=processed_summary,
             period_summary=period_summary,
             start_date=start_date.strftime('%d/%m/%Y'),
             end_date=end_date.strftime('%d/%m/%Y'),
-            total_hours=format_timedelta(grand_total_time)
+            total_hours=format_timedelta(grand_total_time),
+            config_summary=config_summary  # Pasar el resumen de configuración
         )
         
     except Exception as e:
@@ -382,7 +421,14 @@ def calculate_with_session():
         flash('No hay datos de búsqueda en la sesión', 'error')
         return redirect(url_for('dashboard'))
     
-    form_data = session.pop('form_data')
+    # Copiar la configuración para mantenerla en la sesión y que no se pierda
+    form_data = session.get('form_data').copy()
+    logger.info(f"Recuperando cálculo de sesión con datos: {form_data}")
+    
+    # IMPORTANTE: No modificar la configuración almacenada
+    if 'config' in form_data:
+        logger.info(f"Configuración recuperada de sesión: {form_data['config']}")
+    
     # Re-crear una solicitud POST con los datos almacenados
     class MockPost:
         def __init__(self, data):
@@ -398,6 +444,33 @@ def calculate_with_session():
     finally:
         # Restaurar la request original
         request.__class__ = original_request.__class__
+
+# Ruta para depuración de sesión - solo habilitada en modo desarrollo
+@app.route('/debug/session')
+def debug_session():
+    """Mostrar el contenido de la sesión para depuración"""
+    env = os.getenv('FLASK_ENV', 'production')
+    debug_mode = env == 'development'
+    
+    if not debug_mode:
+        return jsonify({'error': 'Esta función solo está disponible en modo desarrollo'})
+    
+    # Convertir la sesión en un diccionario serializable
+    session_data = {}
+    for key, value in session.items():
+        try:
+            # Intentar serializar para ver si es JSONifiable
+            json.dumps({key: value})
+            session_data[key] = value
+        except TypeError:
+            # Si no es serializable, incluir una representación en cadena
+            session_data[key] = str(value)
+    
+    return jsonify({
+        'session': session_data,
+        'session_id': session.sid if hasattr(session, 'sid') else None,
+        'timestamp': datetime.now().isoformat()
+    })
 
 # Para producción, no ejecutar app.run() directamente
 # Usar gunicorn o similar
