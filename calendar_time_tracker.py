@@ -38,6 +38,9 @@ def authenticate_google_calendar():
     client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
     redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
     
+    # Determinar si estamos en entorno de producción o desarrollo
+    is_production = os.environ.get('FLASK_ENV', 'production') == 'production'
+    
     # Cargar credenciales existentes
     if os.path.exists(token_file):
         try: 
@@ -61,17 +64,30 @@ def authenticate_google_calendar():
         # Si aún no hay credenciales válidas, iniciar flujo de autenticación
         if not creds:
             try:
-                # Usar variables de entorno si están disponibles
+                # Configurar el cliente OAuth
                 if client_id and client_secret:
-                    client_config = {
-                        "installed": {
-                            "client_id": client_id,
-                            "client_secret": client_secret,
-                            "redirect_uris": [redirect_uri or "http://localhost"],
-                            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                            "token_uri": "https://oauth2.googleapis.com/token"
+                    # En producción usar la URI para autenticación sin navegador
+                    if is_production:
+                        client_config = {
+                            "installed": {
+                                "client_id": client_id,
+                                "client_secret": client_secret,
+                                "redirect_uris": ["urn:ietf:wg:oauth:2.0:oob"],
+                                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                                "token_uri": "https://oauth2.googleapis.com/token"
+                            }
                         }
-                    }
+                    # En desarrollo usar la URI de redirección configurada
+                    else:
+                        client_config = {
+                            "installed": {
+                                "client_id": client_id,
+                                "client_secret": client_secret,
+                                "redirect_uris": [redirect_uri or "http://localhost"],
+                                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                                "token_uri": "https://oauth2.googleapis.com/token"
+                            }
+                        }
                     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
                 # De lo contrario, intentar usar el archivo de credenciales
                 elif os.path.exists(credentials_file):
@@ -79,8 +95,18 @@ def authenticate_google_calendar():
                 else:
                     print(f"Error: No se encontró '{credentials_file}' ni variables de entorno GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET.")
                     return None
-                    
-                creds = flow.run_local_server(port=0)
+                
+                # Ejecutar el flujo de autenticación apropiado según el entorno
+                if is_production:
+                    print("Entorno de producción detectado. Utilizando autenticación sin navegador.")
+                    print("Por favor, vaya a la siguiente URL en su navegador:")
+                    auth_url = flow.authorization_url()[0]
+                    print(auth_url)
+                    print("\nIntroduzca el código de autorización:")
+                    creds = flow.run_console()
+                else:
+                    print("Entorno de desarrollo detectado. Iniciando navegador para autenticación.")
+                    creds = flow.run_local_server(port=0)
                 
                 # Verificar que creds sea una instancia de Credentials
                 if not isinstance(creds, Credentials):

@@ -21,6 +21,7 @@ nano .env
 ```
 
 Asegúrate de configurar una `SECRET_KEY` segura y valores adecuados para tu entorno.
+Mantén `FLASK_ENV=production` para el modo de autenticación sin navegador, recomendado para servidores.
 
 ### 2. Configurar las credenciales de Google Calendar
 
@@ -66,14 +67,26 @@ La aplicación debería estar disponible en `http://tu-servidor:5000`
 
 ### 5. Autenticación inicial
 
-Cuando accedas por primera vez a la aplicación, necesitarás completar el flujo de autenticación de Google:
+Cuando ejecutes la aplicación por primera vez en modo producción, necesitarás completar el flujo de autenticación de Google sin navegador:
 
-1. Accede a la aplicación a través del navegador en `http://tu-servidor:5000`
-2. Se te redirigirá automáticamente al flujo de autenticación de Google
-3. Completa la autenticación y autoriza el acceso a tu calendario
-4. El archivo `token.pickle` se generará automáticamente y se almacenará en el volumen montado
+1. Revisa los logs del contenedor para encontrar la URL de autenticación:
+   ```bash
+   docker logs calendar-work-time-tracker | grep "vaya a la siguiente URL"
+   ```
 
-**Nota importante**: Para que este flujo funcione, el servidor debe tener acceso a internet y el usuario debe poder completar la autenticación a través del navegador. El contenedor está configurado para persistir el token.pickle automáticamente.
+2. Copia esa URL y ábrela en un navegador en tu computadora local (no en el servidor)
+
+3. Completa el proceso de autenticación con Google
+
+4. Google te proporcionará un código de autorización
+
+5. Introduce ese código en la consola del contenedor:
+   ```bash
+   docker attach calendar-work-time-tracker
+   ```
+   (Pega el código y presiona Enter. Puedes desconectarte después con Ctrl+P, Ctrl+Q)
+
+Una vez completado este proceso, se generará un archivo `token.pickle` que se guardará en el volumen montado y se usará para futuras autenticaciones sin necesidad de repetir estos pasos.
 
 ### 6. Actualización de la aplicación
 
@@ -120,4 +133,16 @@ Si tienes problemas con la autenticación:
 ```bash
 rm token.pickle
 docker-compose restart
+```
+
+#### No puedo ver la URL de autenticación
+
+Si no puedes ver la URL de autenticación en los logs:
+
+```bash
+# Ver los logs completos
+docker logs calendar-work-time-tracker
+
+# O filtrar específicamente por mensajes de autenticación
+docker logs calendar-work-time-tracker | grep -A 10 "Entorno de producción detectado"
 ``` 

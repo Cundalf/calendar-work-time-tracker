@@ -13,6 +13,7 @@ Calendar Work Time Tracker es una aplicación web construida con Flask que te pe
 - **Filtros por Fechas**: Selecciona períodos específicos para analizar.
 - **Personalización de Horario Laboral**: Define tus propias horas de trabajo.
 - **Persistencia de Configuración**: Guarda tus preferencias en el navegador.
+- **Autenticación Flexible**: Soporta autenticación con navegador para entornos de desarrollo y sin navegador para servidores de producción
 
 ## Prerrequisitos
 
@@ -89,7 +90,12 @@ Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
 
 ```
 SECRET_KEY=tu_clave_secreta_para_flask
+FLASK_ENV=production  # Cambiar a 'development' para desarrollo local
 ```
+
+El valor de `FLASK_ENV` determina el método de autenticación:
+- `production`: Utiliza autenticación sin navegador (ideal para servidores)
+- `development`: Utiliza autenticación con navegador (ideal para desarrollo local)
 
 ### 6. Ejecutar la Aplicación
 
@@ -98,6 +104,23 @@ python app.py
 ```
 
 La aplicación estará disponible en `http://localhost:5000`
+
+### 7. Autenticación Inicial
+
+#### 7.1 En modo desarrollo (FLASK_ENV=development)
+
+1. La aplicación abrirá automáticamente un navegador local para la autenticación
+2. Completa el proceso de autorización de Google
+3. La aplicación guardará el token para futuros usos
+
+#### 7.2 En modo producción (FLASK_ENV=production)
+
+1. La aplicación mostrará una URL en la consola
+2. Copia esta URL y ábrela en un navegador en tu computadora local
+3. Completa el proceso de autorización de Google
+4. Google te proporcionará un código que debes copiar
+5. Pega este código en la consola donde se está ejecutando la aplicación
+6. La aplicación guardará el token para futuros usos
 
 ## Cómo Usar la Aplicación
 
@@ -134,11 +157,14 @@ La aplicación estará disponible en `http://localhost:5000`
 - **Errores de Autenticación**: Si experimentas problemas con la autenticación, elimina el archivo `token.pickle` y reinicia la aplicación.
 - **Resultados Inesperados**: Verifica que la configuración de colores y categorías corresponda con la forma en que organizas tu calendario.
 - **Problemas de Instalación**: Asegúrate de que todas las dependencias estén correctamente instaladas.
+- **No puedo ver la URL de autenticación**: Si estás en modo producción, revisa los logs para encontrar la URL de autenticación.
 
 ## Documentación Adicional
 
 - [legacy/README.md](legacy/README.md): Información sobre la versión anterior basada en scripts de línea de comandos.
 - [DESARROLLO.md](DESARROLLO.md): Historia del desarrollo del proyecto y cómo fue creado utilizando IA y la metodología Vibe Coding.
+- [README.docker.md](README.docker.md): Instrucciones detalladas para desplegar con Docker.
+- [README.deployment.md](README.deployment.md): Guía completa para despliegue en producción.
 
 ## Licencia
 

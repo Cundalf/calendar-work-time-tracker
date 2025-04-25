@@ -59,6 +59,8 @@ Es **crítico** cambiar la `SECRET_KEY` por una cadena aleatoria y segura:
 python -c "import secrets; print(secrets.token_hex(24))"
 ```
 
+Asegúrate de mantener `FLASK_ENV=production` para habilitar la autenticación sin navegador.
+
 ## 5. Configurar Credenciales de Google Calendar
 
 Tienes dos opciones para configurar las credenciales de Google Calendar:
@@ -78,6 +80,18 @@ GOOGLE_REDIRECT_URI=https://tu-dominio.com
 ```
 2. Asegúrate de que las URIs de redirección en la Consola de Google Cloud apunten a tu dominio
 3. No necesitas el archivo `credentials.json` si usas este método
+
+### Completar la autenticación en modo producción
+
+En un servidor de producción, la aplicación usa autenticación sin navegador:
+
+1. Cuando la aplicación solicite autenticación, mostrará una URL en los logs
+2. Copia esta URL y ábrela en un navegador en tu computadora local
+3. Completa el proceso de autenticación 
+4. Copia el código de autorización que Google te proporciona
+5. Introduce ese código en la consola donde se está ejecutando la aplicación
+
+Una vez completado este proceso, se generará un archivo `token.pickle` que se usará para futuras autenticaciones sin necesidad de repetir estos pasos.
 
 Nota: Si ambos métodos están configurados, la aplicación dará prioridad a las variables de entorno.
 
@@ -158,7 +172,9 @@ Estos archivos contienen la configuración y la autenticación con Google Calend
 La aplicación distingue entre ambientes de desarrollo y producción mediante la variable `FLASK_ENV`.
 
 - **Producción**: `FLASK_ENV=production` (valor por defecto)
-- **Desarrollo**: `FLASK_ENV=development` (para pruebas locales)
+  - Utiliza autenticación sin navegador, adecuada para servidores sin interfaz gráfica
+- **Desarrollo**: `FLASK_ENV=development` 
+  - Utiliza autenticación con navegador web para mayor comodidad en desarrollo local
 
 ## Solución de Problemas
 
@@ -175,6 +191,12 @@ Si hay problemas con la autenticación:
 rm /var/www/calendar-app/token.pickle
 
 # Luego ejecutar la aplicación y completar la autenticación
+```
+
+Si no ves la URL de autenticación en los logs en modo producción:
+```bash
+# Ver los últimos logs para encontrar la URL de autenticación
+sudo journalctl -u calendar-app -n 50
 ```
 
 ### La aplicación no inicia
