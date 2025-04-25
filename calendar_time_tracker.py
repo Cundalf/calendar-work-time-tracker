@@ -100,10 +100,12 @@ def authenticate_google_calendar():
                 if is_production:
                     print("Entorno de producción detectado. Utilizando autenticación sin navegador.")
                     print("Por favor, vaya a la siguiente URL en su navegador:")
-                    auth_url = flow.authorization_url()[0]
+                    auth_url, _ = flow.authorization_url(prompt='consent')
                     print(auth_url)
                     print("\nIntroduzca el código de autorización:")
-                    creds = flow.run_console()
+                    code = input().strip()
+                    flow.fetch_token(code=code)
+                    creds = flow.credentials
                 else:
                     print("Entorno de desarrollo detectado. Iniciando navegador para autenticación.")
                     creds = flow.run_local_server(port=0)
