@@ -7,6 +7,7 @@ from collections import defaultdict
 # Third-party imports
 from flask import Flask, render_template, request, redirect, url_for, flash
 from dotenv import load_dotenv
+from loguru import logger
 
 # Local application imports
 from calendar_time_tracker import (
@@ -17,10 +18,35 @@ from calendar_time_tracker import (
     format_timedelta
 )
 
+# Cargar variables de entorno
 load_dotenv()
 
+# Configuración de la aplicación
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave_por_defecto_no_usar_en_produccion')
+
+# Configuración de logs
+log_level = os.getenv('LOG_LEVEL', 'INFO')
+if log_level and ' ' in log_level:  # Eliminar posibles comentarios
+    log_level = log_level.split(' ')[0]
+log_format = os.getenv('LOG_FORMAT', '{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}')
+if log_format and ' ' in log_format:  # Eliminar posibles comentarios
+    log_format = log_format.split('#')[0].strip()
+log_path = os.getenv('LOG_PATH', 'logs/')
+if log_path and ' ' in log_path:  # Eliminar posibles comentarios
+    log_path = log_path.split(' ')[0]
+
+# Asegurar que existe el directorio de logs
+os.makedirs(log_path, exist_ok=True)
+
+# Configurar Loguru
+logger.remove()  # Remover el handler por defecto
+logger.add(f"{log_path}/app.log", 
+           level=log_level, 
+           format=log_format, 
+           rotation="10 MB", 
+           retention="1 month")
+logger.add(lambda msg: print(msg), level="WARNING", format=log_format)  # Solo warnings y errors a consola
 
 # Definir horario predeterminado (para usar time explícitamente)
 DEFAULT_WORK_START = time(9, 0)  # 9:00 AM
@@ -47,11 +73,13 @@ def calculate():
         
         if end_date < start_date:
             flash('La fecha de fin no puede ser anterior a la fecha de inicio', 'error')
+            logger.warning(f"Intento de búsqueda con fechas inválidas: start={start_date}, end={end_date}")
             return redirect(url_for('dashboard'))
         
         service = authenticate_google_calendar()
         if not service:
             flash('Error al autenticar con Google Calendar', 'error')
+            logger.error("Falló la autenticación con Google Calendar")
             return redirect(url_for('dashboard'))
         
         timezone = get_calendar_timezone(service)
@@ -59,12 +87,14 @@ def calculate():
         
         if events is None:
             flash('Error al obtener eventos del calendario', 'error')
+            logger.error(f"Error al obtener eventos para el rango {start_date} - {end_date}")
             return redirect(url_for('dashboard'))
         
         # Obtener configuración del localStorage (se enviará desde el frontend)
         config_data = request.form.get('config')
         if not config_data:
             flash('Error: No se encontró la configuración del usuario', 'error')
+            logger.error("Configuración de usuario no encontrada")
             return redirect(url_for('dashboard'))
             
         config = json.loads(config_data)
@@ -130,6 +160,7 @@ def calculate():
                         'percentage': round(percentage, 1)
                     })
         
+        logger.info(f"Cálculo completado para {start_date} - {end_date}: {format_timedelta(grand_total_time)} horas totales")
         return render_template(
             'results.html', 
             weekly_summary=processed_summary,
@@ -140,8 +171,23 @@ def calculate():
         )
         
     except Exception as e:
-        flash(f'Error inesperado: {str(e)}', 'error')
+        error_msg = f'Error inesperado: {str(e)}'
+        flash(error_msg, 'error')
+        logger.exception(f"Error en calculate: {str(e)}")
         return redirect(url_for('dashboard'))
 
+# Para producción, no ejecutar app.run() directamente
+# Usar gunicorn o similar
 if __name__ == '__main__':
-    app.run(debug=True) 
+    # Configuración según el entorno
+    env = os.getenv('FLASK_ENV', 'production')
+    debug_mode = env == 'development'
+    host = os.getenv('HOST', '0.0.0.0')
+    port = int(os.getenv('PORT', 5000))
+    
+    if debug_mode:
+        logger.info(f"Iniciando en modo desarrollo: http://{host}:{port}")
+    else:
+        logger.info(f"Iniciando en modo producción: {host}:{port}")
+    
+    app.run(host=host, port=port, debug=debug_mode) 

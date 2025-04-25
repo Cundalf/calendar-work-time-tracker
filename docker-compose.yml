@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  calendar-app:
+    build: .
+    container_name: calendar-work-time-tracker
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./credentials.json:/app/credentials.json:ro
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+      # El token.pickle se montará si existe, pero se generará cuando el usuario haga login
+      - ${PWD}/token.pickle:/app/token.pickle:rw
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+    command: gunicorn --workers=4 --bind=0.0.0.0:5000 wsgi:app 

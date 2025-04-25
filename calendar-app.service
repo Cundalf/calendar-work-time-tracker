@@ -1,0 +1,14 @@
+[Unit]
+Description=Calendar Work Time Tracker
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/your/app  # Cambiar por la ruta real
+Environment="PATH=/path/to/your/app/venv/bin"  # Cambiar por la ruta real
+EnvironmentFile=/path/to/your/app/.env  # Cambiar por la ruta real
+ExecStart=/path/to/your/app/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 wsgi:app
+
+[Install]
+WantedBy=multi-user.target 

@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+.env.example
+
+# Logs y datos locales
+logs/
+*.log
+
+# Documentación y archivos no necesarios en producción
+README.md
+README.deployment.md
+DESARROLLO.md
+nginx-config.conf
+calendar-app.service
+
+# Archivos de Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Otros
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo 
