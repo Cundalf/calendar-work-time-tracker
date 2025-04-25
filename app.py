@@ -11,23 +11,25 @@ from loguru import logger
 
 # Local application imports
 from calendar_time_tracker import (
-    authenticate_google_calendar, 
     get_calendar_timezone, 
     get_events, 
-    calculate_weekly_summary, 
-    format_timedelta,
+    calculate_weekly_summary
+)
+
+from calendar_utils import format_timedelta
+
+from auth_utils import (
+    authenticate_google_calendar,
     get_authorization_url,
     complete_oauth_flow,
     credentials_to_dict
 )
 
-# Función para limpiar variables de entorno de comentarios
-def clean_env_value(value):
-    if value and isinstance(value, str):
-        # Si hay un # que no está al inicio, considerarlo como inicio de comentario
-        if '#' in value and not value.startswith('#'):
-            return value.split('#')[0].strip()
-    return value
+from config_utils import (
+    clean_env_value,
+    get_default_config,
+    validate_config
+)
 
 # Cargar variables de entorno
 load_dotenv()
@@ -99,57 +101,6 @@ logger.add(lambda msg: print(msg), level=log_level, format=log_format)
 # Definir horario predeterminado (para usar time explícitamente)
 DEFAULT_WORK_START = time(9, 0)  # 9:00 AM
 DEFAULT_WORK_END = time(17, 0)   # 5:00 PM
-
-# Función para obtener configuración predeterminada
-def get_default_config():
-    """Retorna una configuración predeterminada con valores seguros"""
-    return {
-        'work_start_time': '09:00',
-        'work_end_time': '17:00',
-        'lunch_duration_minutes': 60,
-        'default_service': 'TIEMPO NO ETIQUETADO',
-        'ooo_service': 'FUERA DE OFICINA',
-        'focus_time_service': 'TIEMPO DE CONCENTRACIÓN',
-        'unlabeled_service': 'SIN ETIQUETA',
-        'group_unlabeled': False,
-        'use_color_tags': False,
-        'color_tags': {}
-    }
-
-# Función para validar la configuración y aplicar defaults cuando sea necesario
-def validate_config(config_data):
-    """Valida la configuración recibida y aplica valores predeterminados SOLO si es necesario"""
-    # Devolver el valor predeterminado solo si NO hay configuración
-    if not config_data:
-        logger.warning("No se recibió configuración. Usando valores predeterminados.")
-        return get_default_config()
-    
-    if isinstance(config_data, str) and not config_data.strip():
-        logger.warning("Se recibió configuración como string vacío. Usando valores predeterminados.")
-        return get_default_config()
-    
-    try:
-        if isinstance(config_data, str):
-            config = json.loads(config_data)
-        else:
-            config = config_data
-        
-        # Verificar que existan todas las claves necesarias sin reemplazarlas
-        default_config = get_default_config()
-        for key in default_config.keys():
-            if key not in config:
-                logger.warning(f"Falta campo '{key}' en la configuración. Usando valor predeterminado: {default_config[key]}")
-                config[key] = default_config[key]
-        
-        # ¡IMPORTANTE: NO modificar los valores existentes!
-        return config
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"Error al parsear configuración JSON: {e}")
-        return get_default_config()
-    except Exception as e:
-        logger.error(f"Error inesperado al procesar configuración: {e}")
-        return get_default_config()
 
 # Contexto global para las plantillas
 @app.context_processor

@@ -124,11 +124,24 @@ La aplicación utiliza un flujo de autenticación web unificado que funciona tan
 
 ## Estructura del Proyecto
 
-- `app.py`: Aplicación principal de Flask
-- `calendar_time_tracker.py`: Núcleo de la funcionalidad de procesamiento de eventos
-- `templates/`: Plantillas HTML para la interfaz web
-- `static/`: Archivos estáticos (CSS, JavaScript, imágenes)
-- `requirements.txt`: Dependencias del proyecto
+El proyecto está organizado en varios módulos para facilitar el mantenimiento y la extensibilidad:
+
+- `app.py`: Aplicación principal de Flask que define las rutas y controla el flujo de la aplicación.
+- `calendar_time_tracker.py`: Contiene las funciones principales para interactuar con Google Calendar y calcular estadísticas.
+- `calendar_utils.py`: Funciones de utilidad para manejar eventos y datos de calendario.
+- `auth_utils.py`: Gestiona la autenticación con Google OAuth2.
+- `config_utils.py`: Funciones para manejar la configuración de la aplicación.
+- `templates/`: Directorio con las plantillas HTML de la aplicación.
+- `static/`: Archivos estáticos como CSS, JavaScript e imágenes.
+- `tests.py`: Pruebas unitarias para verificar el funcionamiento de la aplicación.
+
+## Tests Unitarios
+
+Para ejecutar las pruebas unitarias:
+
+```bash
+python tests.py
+```
 
 ## Solución de Problemas
 
