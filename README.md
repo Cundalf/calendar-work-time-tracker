@@ -114,7 +114,7 @@ La aplicación estará disponible en `http://localhost:5000`
 
 ## Documentación Adicional
 
-- [README_LEGACY.md](README_LEGACY.md): Información sobre la versión anterior basada en scripts de línea de comandos.
+- [legacy/README.md](legacy/README.md): Información sobre la versión anterior basada en scripts de línea de comandos.
 - [DESARROLLO.md](DESARROLLO.md): Historia del desarrollo del proyecto y cómo fue creado utilizando IA y la metodología Vibe Coding.
 
 ## Licencia
