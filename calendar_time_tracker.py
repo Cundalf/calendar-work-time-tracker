@@ -1,17 +1,25 @@
+# Standard library imports
 import datetime
 import os.path
 import pickle
-import pytz
 from collections import defaultdict
+
+# Third-party imports
+import pytz
 from dateutil.relativedelta import relativedelta, MO
-import sys
+
+# Importar tzlocal si está disponible
+try:
+    import tzlocal
+    TZLOCAL_AVAILABLE = True
+except ImportError:
+    TZLOCAL_AVAILABLE = False
 
 # --- Google API Libraries ---
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
 # Google Calendar API Scopes
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
@@ -28,37 +36,44 @@ def authenticate_google_calendar():
         print(f"Error: No se encontró '{credentials_file}'.")
         return None
 
+    # Cargar credenciales existentes
     if os.path.exists(token_file):
-        with open(token_file, 'rb') as token:
-            try: 
+        try: 
+            with open(token_file, 'rb') as token:
                 creds = pickle.load(token)
-            except Exception as e: 
-                print(f"Error cargando token: {e}")
-                creds = None
+        except Exception as e: 
+            print(f"Error cargando token: {e}")
+            creds = None
 
+    # Validar credenciales o renovarlas si es necesario
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             try: 
                 creds.refresh(Request())
-            except Exception:
+            except Exception as e:
+                print(f"Error al refrescar token: {e}")
                 creds = None
                 if os.path.exists(token_file):
                     os.remove(token_file)
         
+        # Si aún no hay credenciales válidas, iniciar flujo de autenticación
         if not creds:
             try:
                 flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
                 creds = flow.run_local_server(port=0)
+                
+                # Verificar que creds sea una instancia de Credentials
+                if not isinstance(creds, Credentials):
+                    creds = Credentials.from_authorized_user_info(info=creds.to_json())
+                
+                # Guardar el token para la próxima vez
+                with open(token_file, 'wb') as token:
+                    pickle.dump(creds, token)
             except Exception as e: 
                 print(f"Error en autenticación: {e}")
                 return None
-                
-            try:
-                with open(token_file, 'wb') as token:
-                    pickle.dump(creds, token)
-            except Exception as e:
-                print(f"Error guardando token: {e}")
 
+    # Construir y devolver el servicio
     try:
         return build('calendar', 'v3', credentials=creds)
     except Exception as e:
@@ -70,14 +85,17 @@ def get_calendar_timezone(service):
     try:
         settings = service.settings().get(setting='timezone').execute()
         return pytz.timezone(settings['value'])
-    except Exception:
+    except Exception as e:
+        print(f"Error al obtener zona horaria del calendario: {e}")
         # Fallback a zona horaria local o UTC
-        try:
-            import tzlocal
-            local_tz_name = tzlocal.get_localzone_name()
-            return pytz.timezone(local_tz_name)
-        except Exception:
-            return pytz.utc
+        if TZLOCAL_AVAILABLE:
+            try:
+                local_tz_name = tzlocal.get_localzone_name()
+                return pytz.timezone(local_tz_name)
+            except Exception as e:
+                print(f"Error al obtener zona horaria local: {e}")
+                pass
+        return pytz.utc
 
 def get_events(service, start_date, end_date, timezone):
     """Obtener eventos del calendario en el rango de fechas especificado"""
@@ -129,7 +147,8 @@ def parse_datetime_api(dt_obj):
             return None, False
             
         return dt, is_all_day
-    except Exception:
+    except Exception as e:
+        print(f"Error al parsear fecha: {e}, objeto: {dt_obj}")
         return None, False
 
 def assign_service(event, config):
@@ -170,10 +189,7 @@ def format_timedelta(td):
     if not isinstance(td, datetime.timedelta):
         return "0.0h"
         
-    total_seconds = td.total_seconds()
-    if -1 < total_seconds < 0:
-        total_seconds = 0
-        
+    total_seconds = max(0, td.total_seconds())  # Asegurar que no sea negativo
     hours = total_seconds / 3600
     return f"{hours:.1f}h"
 
@@ -205,7 +221,8 @@ def calculate_weekly_summary(events, start_date, end_date, timezone, work_start_
         try:
             start_dt = start_dt_api.astimezone(timezone)
             end_dt = end_dt_api.astimezone(timezone)
-        except Exception:
+        except Exception as e:
+            print(f"Error al convertir zona horaria: {e}, evento: {event.get('summary', 'Sin título')}")
             continue
             
         if start_is_all_day and end_dt.time() == datetime.time.min and end_dt.date() > start_dt.date():
@@ -243,7 +260,8 @@ def calculate_weekly_summary(events, start_date, end_date, timezone, work_start_
                     if daily_potential_time < datetime.timedelta(0):
                         daily_potential_time = datetime.timedelta(0)
                     total_potential_work_time_week += daily_potential_time
-                except Exception:
+                except Exception as e:
+                    print(f"Error al calcular horas laborales del día {temp_date}: {e}")
                     is_work_day = False
 
             # Procesar eventos que solapan con el día

@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Calendar Work Time Tracker - Herramienta para calcular y analizar el tiempo dedicado a diferentes actividades según Google Calendar">
     <title>{% block title %}CWTT{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+    <link href="{{ url_for('static', filename='css/tailwind.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/flowbite.min.css') }}" rel="stylesheet" />
     <style>
         /* Ajustes de tamaño general */
         body {
@@ -65,6 +66,14 @@
             width: 100%;
             max-width: 720px;
             margin: 0 auto;
+            padding-top: 1.5rem;
+            padding-bottom: 1.5rem;
+        }
+
+        /* Prevenir scroll horizontal */
+        html, body {
+            overflow-x: hidden;
+            position: relative;
         }
 
         @media (max-width: 640px) {
@@ -77,6 +86,18 @@
             .main-container {
                 max-width: 1280px;
             }
+        }
+
+        /* Estilos para la flecha del tooltip */
+        .group:hover .absolute::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1f2937 transparent transparent transparent;
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -109,7 +130,7 @@
         </div>
     </nav>
 
-    <main class="flex-grow main-container py-3">
+    <main class="flex-grow main-container py-6">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -125,11 +146,36 @@
 
     <footer class="bg-white border-t border-gray-200 py-3">
         <div class="main-container text-center text-xs text-gray-500">
-            Desarrollado por <a href="https://cundalf.github.io/" class="text-indigo-600 hover:text-indigo-800">Cundalf</a>
+            <div class="flex justify-between items-center">
+                <div class="text-left">
+                    <p>Hecho por <a href="https://cundalf.github.io/" class="text-indigo-600 hover:text-indigo-800">Cundalf</a></p>
+                    <p>con amor en <a href="https://grupoesfera.com.ar/" class="text-indigo-600 hover:text-indigo-800">Grupo Esfera</a></p>
+                </div>
+                <div class="flex space-x-4">
+                    <div class="relative group">
+                        <img src="{{ url_for('static', filename='img/cursor.png') }}" alt="Cursor" class="h-8 opacity-50 transition-opacity duration-300 group-hover:opacity-100">
+                        <div class="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                            Construido con Cursor
+                        </div>
+                    </div>
+                    <div class="relative group">
+                        <img src="{{ url_for('static', filename='img/gemini.png') }}" alt="Google Gemini" class="h-8 opacity-50 transition-opacity duration-300 group-hover:opacity-100">
+                        <div class="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                            Construido con Gemini
+                        </div>
+                    </div>
+                    <div class="relative group">
+                        <img src="{{ url_for('static', filename='img/claude.png') }}" alt="Claude" class="h-8 opacity-50 transition-opacity duration-300 group-hover:opacity-100">
+                        <div class="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                            Construido con Claude
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </footer>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+    <script src="{{ url_for('static', filename='js/flowbite.min.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html> 

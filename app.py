@@ -1,15 +1,30 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-from datetime import datetime, time, timedelta
+# Standard library imports
 import os
-from dotenv import load_dotenv
-from calendar_time_tracker import authenticate_google_calendar, get_calendar_timezone, get_events, calculate_weekly_summary, format_timedelta
 import json
+from datetime import datetime, time, timedelta
 from collections import defaultdict
+
+# Third-party imports
+from flask import Flask, render_template, request, redirect, url_for, flash
+from dotenv import load_dotenv
+
+# Local application imports
+from calendar_time_tracker import (
+    authenticate_google_calendar, 
+    get_calendar_timezone, 
+    get_events, 
+    calculate_weekly_summary, 
+    format_timedelta
+)
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+
+# Definir horario predeterminado (para usar time explícitamente)
+DEFAULT_WORK_START = time(9, 0)  # 9:00 AM
+DEFAULT_WORK_END = time(17, 0)   # 5:00 PM
 
 # Rutas
 @app.route('/')
