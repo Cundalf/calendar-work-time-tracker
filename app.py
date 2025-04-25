@@ -55,7 +55,8 @@ logger.add(f"{log_path}/app.log",
            format=log_format, 
            rotation="10 MB", 
            retention="1 month")
-logger.add(lambda msg: print(msg), level="WARNING", format=log_format)  # Solo warnings y errors a consola
+# Agregar handler para mostrar todos los logs en la consola
+logger.add(lambda msg: print(msg), level=log_level, format=log_format)  # Mostrar todos los logs en consola, no solo warnings
 
 # Definir horario predeterminado (para usar time explícitamente)
 DEFAULT_WORK_START = time(9, 0)  # 9:00 AM
@@ -80,25 +81,47 @@ def get_default_config():
 # Función para validar la configuración y aplicar defaults cuando sea necesario
 def validate_config(config_data):
     """Valida la configuración recibida y aplica valores predeterminados si es necesario"""
+    logger.info(f"Iniciando validación de configuración. Tipo recibido: {type(config_data)}")
+    
     if not config_data:
         logger.warning("No se recibió configuración. Usando valores predeterminados.")
         return get_default_config()
     
+    if isinstance(config_data, str) and not config_data.strip():
+        logger.warning("Se recibió configuración como string vacío. Usando valores predeterminados.")
+        return get_default_config()
+    
     try:
         if isinstance(config_data, str):
+            logger.info(f"Parseando configuración como string JSON. Longitud: {len(config_data)}")
             config = json.loads(config_data)
         else:
+            logger.info(f"Usando configuración que ya es un objeto. Tipo: {type(config_data)}")
             config = config_data
+            
+        logger.info(f"Configuración después del parsing: {config}")
     except json.JSONDecodeError as e:
         logger.error(f"Error al parsear configuración JSON: {e}. Usando valores predeterminados.")
+        logger.error(f"String que causó el error: '{config_data}'")
+        return get_default_config()
+    except Exception as e:
+        logger.error(f"Error inesperado al procesar configuración: {e}. Usando valores predeterminados.")
         return get_default_config()
     
     # Validar campos esenciales y aplicar defaults si faltan
     default_config = get_default_config()
     for key, default_value in default_config.items():
-        if key not in config or config[key] is None or (isinstance(config[key], str) and config[key].strip() == ''):
-            logger.warning(f"Falta configuración para '{key}'. Usando valor predeterminado: {default_value}")
+        if key not in config:
+            logger.warning(f"Falta campo '{key}' en la configuración. Usando valor predeterminado: {default_value}")
             config[key] = default_value
+        elif config[key] is None:
+            logger.warning(f"Campo '{key}' es None. Usando valor predeterminado: {default_value}")
+            config[key] = default_value
+        elif isinstance(config[key], str) and config[key].strip() == '':
+            logger.warning(f"Campo '{key}' es string vacío. Usando valor predeterminado: {default_value}")
+            config[key] = default_value
+        else:
+            logger.info(f"Campo '{key}' configurado correctamente con valor: {config[key]}")
     
     return config
 
@@ -199,6 +222,10 @@ def logout():
 @app.route('/calculate', methods=['POST'])
 def calculate():
     try:
+        # Log completo de todos los datos recibidos en la solicitud
+        logger.info(f"Solicitud POST recibida: {request.form}")
+        logger.info(f"Headers recibidos: {dict(request.headers)}")
+        
         start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d').date()
         end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d').date()
         
@@ -214,6 +241,7 @@ def calculate():
             'config': request.form.get('config', '{}')
         }
         session['form_data'] = form_data
+        logger.debug(f"Datos guardados en sesión: {form_data}")
         
         # Obtener credenciales de la sesión
         credentials = session.get('credentials')

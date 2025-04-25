@@ -202,11 +202,15 @@ function submitForm() {
     };
     localStorage.setItem('calendarDates', JSON.stringify(datesToSave));
     
+    // Asegurarse de obtener la configuración más reciente del localStorage
+    const freshConfig = localStorage.getItem('calendarConfig');
+    console.log('Configuración del localStorage antes de enviar:', freshConfig);
+    
     // Añadir configuración al formulario
-    document.getElementById('configData').value = config;
+    document.getElementById('configData').value = freshConfig;
     
     // Log para debugging
-    console.log('Enviando formulario con config:', config);
+    console.log('Enviando formulario con config:', freshConfig);
     
     // Enviar formulario
     document.getElementById('calculateForm').submit();
