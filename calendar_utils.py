@@ -81,30 +81,37 @@ def assign_service(event, config):
     # Lógica de asignación de servicio
     color_id = event.get('colorId')
     event_type = event.get('eventType', 'default')
+    summary = event.get('summary', '')
     
-    # Primero, manejar casos especiales
+    # Tipos de eventos:
+    # "birthday": Es un evento especial de todo el día con una recurrencia anual.
+    # "default": Es un evento normal o no se especifica más.
+    # "focusTime": Es un evento de tiempo dedicado.
+    # "fromGmail": Un evento de Gmail. No se puede crear este tipo de evento.
+    # "outOfOffice": Un evento fuera de la oficina.
+    # "workingLocation": Es un evento de ubicación de trabajo.
+
+
+    # Prioridad 1: Si es un evento fuera de oficina por tipo
     if event_type == 'outOfOffice':
         return ooo_service
     
-    # Verificar si es un evento de Focus Time (sin distinguir mayúsculas/minúsculas)
-    summary = event.get('summary', '')
-    if summary.lower().startswith('focus time'):
-        return focus_time_service
+    # Prioridad 2: Si es un evento Focus Time por tipo
+    if event_type == 'focusTime' or summary.lower().startswith('focus time'):
+        if not use_color_tags or not color_id:
+            return focus_time_service
     
-    # Asignar por color si está habilitado y existe el color
+    # Prioridad 3: Si se usa etiquetas de color y el evento tiene un color definido en la configuración
     if use_color_tags and color_id and color_id in color_id_to_service:
         return color_id_to_service[color_id]
     
-    # Verificar si el evento tiene resumen
+    # Prioridad 4: Si el evento tiene color pero no lo tenemos configurado lo agrupamos si esta habilitada la opcion
+    if group_unlabeled and color_id and color_id not in color_id_to_service:
+        return unlabeled_service
+
+    # Prioridad 5: Si el evento no tiene resumen o está vacío
     if not summary.strip():
         return unlabeled_service
     
-    # Verificar si debemos agrupar eventos sin etiqueta específica
-    if group_unlabeled:
-        # Aquí puedes implementar lógica para determinar si un evento
-        # debe ser agrupado como "sin etiqueta" o usar el resumen
-        # Por ejemplo, puedes buscar ciertos patrones en el resumen
-        return default_service
-    
-    # Por defecto, usar el resumen del evento como nombre del servicio
-    return summary 
+    # Prioridad 6: Servicio por defecto
+    return default_service
